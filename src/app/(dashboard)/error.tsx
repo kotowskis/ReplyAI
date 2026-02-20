@@ -1,0 +1,47 @@
+"use client";
+
+import { useEffect } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+
+export default function DashboardError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error("Dashboard error:", error);
+  }, [error]);
+
+  const isNetworkError =
+    error.message?.includes("fetch") ||
+    error.message?.includes("network") ||
+    error.message?.includes("ECONNREFUSED") ||
+    error.message?.includes("Failed to fetch");
+
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
+        <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
+        <h2 className="mt-4 text-lg font-semibold text-zinc-900">
+          {isNetworkError
+            ? "Problem z połączeniem"
+            : "Coś poszło nie tak"}
+        </h2>
+        <p className="mt-2 text-sm text-zinc-500">
+          {isNetworkError
+            ? "Nie udało się połączyć z serwerem. Sprawdź swoje połączenie z internetem."
+            : "Wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę."}
+        </p>
+        <button
+          onClick={reset}
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Spróbuj ponownie
+        </button>
+      </div>
+    </div>
+  );
+}

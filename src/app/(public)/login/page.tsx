@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Mode = "login" | "register";
 
@@ -16,14 +17,17 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
 
     try {
       if (mode === "register") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -31,7 +35,18 @@ export default function LoginPage() {
           },
         });
         if (error) throw error;
+
+        // If email confirmation is required, user won't have a session yet
+        if (data.user && !data.session) {
+          setSuccessMessage(
+            "Konto utworzone! Sprawdź swoją skrzynkę email i kliknij link potwierdzający, aby się zalogować."
+          );
+          setLoading(false);
+          return;
+        }
+
         router.push("/onboarding");
+        return;
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -39,8 +54,8 @@ export default function LoginPage() {
         });
         if (error) throw error;
         router.push("/dashboard");
+        return;
       }
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Wystąpił błąd");
     } finally {
@@ -118,9 +133,26 @@ export default function LoginPage() {
             />
           </div>
 
+          {mode === "login" && (
+            <div className="text-right">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                Zapomniałeś hasła?
+              </Link>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
               {error}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">
+              {successMessage}
             </div>
           )}
 

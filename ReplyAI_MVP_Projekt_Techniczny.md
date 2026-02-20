@@ -1,6 +1,6 @@
 # ReplyAI — Projekt Techniczny MVP
 
-> **Wersja:** 1.0 | **Data:** Luty 2026 | **Zespół:** 2 osoby  
+> **Wersja:** 1.1 | **Data:** Luty 2026 | **Zespół:** 2 osoby
 > **Cel:** Działający produkt z płacącymi klientami w 8 tygodni
 
 ---
@@ -11,14 +11,16 @@
 2. [Stack technologiczny](#2-stack-technologiczny)
 3. [Architektura systemu](#3-architektura-systemu)
 4. [Schemat bazy danych](#4-schemat-bazy-danych)
-5. [Moduły aplikacji](#5-moduły-aplikacji)
-6. [AI — Prompt Engineering](#6-ai--prompt-engineering)
-7. [Integracje zewnętrzne](#7-integracje-zewnętrzne)
-8. [Bezpieczeństwo i RODO](#8-bezpieczeństwo-i-rodo)
-9. [Plan 8 tygodni](#9-plan-8-tygodni)
-10. [Podział zadań](#10-podział-zadań)
-11. [Definicja Done](#11-definicja-done)
-12. [Co odpuszczamy w MVP](#12-co-odpuszczamy-w-mvp)
+5. [Role użytkowników](#5-role-użytkowników)
+6. [Moduły aplikacji](#6-moduły-aplikacji)
+7. [Obsługa błędów](#7-obsługa-błędów)
+8. [AI — Prompt Engineering](#8-ai--prompt-engineering)
+9. [Integracje zewnętrzne](#9-integracje-zewnętrzne)
+10. [Bezpieczeństwo i RODO](#10-bezpieczeństwo-i-rodo)
+11. [Plan 8 tygodni](#11-plan-8-tygodni)
+12. [Podział zadań](#12-podział-zadań)
+13. [Definicja Done](#13-definicja-done)
+14. [Co odpuszczamy w MVP](#14-co-odpuszczamy-w-mvp)
 
 ---
 
@@ -143,8 +145,10 @@ CREATE TABLE profiles (
   id            UUID PRIMARY KEY REFERENCES auth.users(id),
   email         TEXT NOT NULL,
   full_name     TEXT,
+  role          TEXT NOT NULL DEFAULT 'user',  -- "user" | "admin"
   created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW()
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT profiles_role_check CHECK (role IN ('user', 'admin'))
 );
 
 -- FIRMY / PROFILE BIZNESOWE
@@ -206,13 +210,105 @@ CREATE POLICY "Users see own generations"
   ON generations FOR ALL USING (
     company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
+
+-- ADMIN POLICIES (odczyt wszystkich danych dla panelu admina)
+CREATE POLICY "Admins can read all profiles"
+  ON profiles FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "Admins can read all companies"
+  ON companies FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "Admins can read all subscriptions"
+  ON subscriptions FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE POLICY "Admins can read all generations"
+  ON generations FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
 ```
 
 ---
 
-## 5. Moduły aplikacji
+## 5. Role użytkowników
 
-### 5.1 Struktura plików Next.js
+### Dostępne role
+
+| Rola | Opis | Dostęp |
+|---|---|---|
+| `user` | Standardowy użytkownik | Dashboard, generator, historia, ustawienia, billing, konto |
+| `admin` | Administrator systemu | Wszystko powyżej + panel administratora (`/admin`) |
+
+### Mechanizm ról
+
+- Kolumna `role` w tabeli `profiles` z constraint `CHECK (role IN ('user', 'admin'))`
+- Nowi użytkownicy automatycznie otrzymują rolę `user` (trigger `handle_new_user()`)
+- Rola jest sprawdzana na dwóch poziomach:
+  1. **Middleware** — redirect nie-adminów z `/admin` do `/dashboard`
+  2. **Server component** — dodatkowy check `isAdmin(role)` na stronie `/admin`
+
+### Promowanie użytkownika do admina
+
+```sql
+-- W Supabase SQL Editor:
+UPDATE profiles SET role = 'admin' WHERE email = 'admin@example.com';
+```
+
+### Panel administratora (`/admin`)
+
+Ekran dostępny tylko dla użytkowników z rolą `admin`:
+
+```
+┌─────────────────────────────────────────┐
+│ ReplyAI  [Generator] ... [🛡 Admin]    │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐│
+│  │ Użytk.   │ │ Firmy    │ │ Generacje││
+│  │    12    │ │     8    │ │    156   ││
+│  └──────────┘ └──────────┘ └──────────┘│
+│                                         │
+│  Ostatni użytkownicy                   │
+│  ┌─────────────────────────────────┐   │
+│  │ Email    │ Imię  │ Rola │ Data  │   │
+│  │──────────│───────│──────│───────│   │
+│  │ a@b.com  │ Anna  │ Admin│ 20.02 │   │
+│  │ c@d.com  │ Marek │ User │ 19.02 │   │
+│  └─────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+```
+
+### Helper functions
+
+```typescript
+// lib/roles.ts
+
+export type UserRole = "user" | "admin";
+
+export async function getUserRole(supabase, userId): Promise<UserRole>
+export function isAdmin(role: UserRole): boolean
+```
+
+### RLS — admin policies
+
+Administratorzy mają dodatkowe RLS policies pozwalające na **odczyt** (SELECT) wszystkich danych:
+- `profiles` — lista wszystkich użytkowników
+- `companies` — lista wszystkich firm
+- `subscriptions` — wszystkie subskrypcje
+- `generations` — wszystkie generacje
+
+Admini **nie mają** uprawnień do edycji/usuwania danych innych użytkowników przez RLS.
+
+---
+
+## 6. Moduły aplikacji
+
+### 6.1 Struktura plików Next.js
 
 ```
 replyai/
@@ -220,37 +316,50 @@ replyai/
 │   ├── (public)/
 │   │   ├── page.tsx              # Landing page
 │   │   ├── pricing/page.tsx      # Cennik
-│   │   └── login/page.tsx        # Logowanie / rejestracja
+│   │   ├── login/page.tsx        # Logowanie / rejestracja
+│   │   ├── forgot-password/      # Odzyskiwanie hasła
+│   │   └── reset-password/       # Ustawianie nowego hasła
 │   ├── (dashboard)/
-│   │   ├── layout.tsx            # Layout z nawigacją
+│   │   ├── layout.tsx            # Layout z nawigacją (pobiera rolę usera)
+│   │   ├── error.tsx             # Error boundary (timeout, brak internetu)
 │   │   ├── dashboard/page.tsx    # Główny ekran generatora
 │   │   ├── history/page.tsx      # Historia odpowiedzi
 │   │   ├── settings/page.tsx     # Profil firmy
-│   │   └── billing/page.tsx      # Subskrypcja i faktury
+│   │   ├── account/page.tsx      # Konto użytkownika (hasło, usuwanie)
+│   │   ├── billing/page.tsx      # Subskrypcja i faktury
+│   │   ├── onboarding/page.tsx   # Onboarding — profil firmy (3 kroki)
+│   │   └── admin/page.tsx        # Panel administratora (tylko admin)
 │   └── api/
 │       ├── generate/route.ts     # POST — generuj odpowiedź
+│       ├── account/
+│       │   └── delete/route.ts   # POST — usuwanie konta
 │       ├── webhooks/
 │       │   └── stripe/route.ts   # Stripe webhook handler
 │       └── billing/
 │           └── portal/route.ts   # Stripe Customer Portal redirect
 ├── components/
 │   ├── ui/                       # Shadcn/ui komponenty
-│   ├── GeneratorForm.tsx         # Główny formularz
+│   ├── DashboardNav.tsx          # Nawigacja (warunkowy link Admin)
+│   ├── GeneratorForm.tsx         # Formularz z obsługą błędów i timeoutów
+│   ├── GeneratorPage.tsx         # Strona generatora (client component)
 │   ├── ReplyOutput.tsx           # Output z przyciskiem kopiuj
-│   ├── CompanySetup.tsx          # Onboarding — profil firmy
+│   ├── SettingsForm.tsx          # Edycja profilu firmy
 │   ├── UsageBar.tsx              # Pasek wykorzystania limitu
-│   └── PlanBadge.tsx             # Free / Pro badge
+│   └── CopyButton.tsx            # Przycisk kopiowania
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts             # Browser client
-│   │   └── server.ts             # Server client
-│   ├── anthropic.ts              # Claude API wrapper
+│   │   ├── server.ts             # Server client
+│   │   ├── admin.ts              # Admin client (service_role)
+│   │   └── middleware.ts         # Auth + role guard
+│   ├── anthropic.ts              # Claude API wrapper (timeout: 30s)
+│   ├── roles.ts                  # getUserRole(), isAdmin()
 │   ├── stripe.ts                 # Stripe klient i helpers
 │   └── prompts.ts                # Szablony promptów
-└── middleware.ts                  # Auth guard dla /dashboard/*
+└── middleware.ts                  # Auth guard + admin route protection
 ```
 
-### 5.2 Ekrany aplikacji
+### 6.2 Ekrany aplikacji
 
 #### Ekran 1 — Generator (główny widok)
 
@@ -306,7 +415,69 @@ replyai/
 
 ---
 
-## 6. AI — Prompt Engineering
+## 7. Obsługa błędów
+
+### Backend — `/api/generate`
+
+Klasyfikacja błędów z odpowiednimi HTTP status i komunikatami po polsku:
+
+| Błąd | HTTP | Kod error | Komunikat |
+|---|---|---|---|
+| Claude API timeout (>30s) | 504 | `ai_timeout` | Generowanie trwa zbyt długo. Spróbuj ponownie. |
+| Claude API niedostępny | 502 | `ai_unavailable` | Nie udało się połączyć z API. Spróbuj za chwilę. |
+| Claude rate limit | 429 | `ai_overloaded` | Serwer AI jest przeciążony. Spróbuj za minutę. |
+| Claude serwer 5xx | 502 | `ai_unavailable` | Serwer AI jest chwilowo niedostępny. |
+| Supabase query error | 503 | `db_error` | Błąd połączenia z bazą danych. |
+| Limit generacji | 402 | `limit_reached` | Osiągnięto limit generacji. Przejdź na plan Pro. |
+| Pusta odpowiedź AI | 500 | `ai_error` | AI nie wygenerowało odpowiedzi. |
+| Nieoczekiwany błąd | 500 | `server_error` | Wystąpił nieoczekiwany błąd. |
+
+Konfiguracja klienta Claude:
+
+```typescript
+// lib/anthropic.ts
+export const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 30_000, // 30s — fail fast zamiast wieszania
+});
+```
+
+Błędy zapisu generacji i inkrementacji licznika są logowane, ale **nie blokują** zwrócenia odpowiedzi do użytkownika.
+
+### Frontend — `GeneratorForm.tsx`
+
+```
+1. Pre-check: navigator.onLine → komunikat o braku internetu
+2. Fetch z AbortController (timeout: 35s)
+3. Klasyfikacja odpowiedzi API po polu `error`:
+   - limit_reached → amber (ostrzeżenie, link do upgrade)
+   - ai_timeout / ai_overloaded → przycisk "Spróbuj ponownie"
+   - ai_unavailable / db_error → przycisk "Spróbuj ponownie"
+4. Catch:
+   - AbortError → komunikat o timeoucie
+   - !navigator.onLine → komunikat o utracie połączenia
+   - inny → komunikat sieciowy
+```
+
+Typy błędów w UI:
+
+| Typ | Styl | Ikona | Przycisk retry |
+|---|---|---|---|
+| `network` | Czerwony | WifiOff | Tak |
+| `timeout` | Czerwony | — | Tak |
+| `server` | Czerwony | — | Tak |
+| `limit` | Amber (ostrzeżenie) | — | Nie |
+
+### Error boundary — `(dashboard)/error.tsx`
+
+Łapie crash server componentów (np. Supabase niedostępny, błąd sieci):
+- Rozróżnia błędy sieciowe od innych
+- Wyświetla przyjazny komunikat po polsku
+- Przycisk "Spróbuj ponownie" (wywołuje `reset()`)
+
+---
+
+## 8. AI — Prompt Engineering
 
 ### System prompt (niezmienny)
 
@@ -438,9 +609,9 @@ export async function POST(req: Request) {
 
 ---
 
-## 7. Integracje zewnętrzne
+## 9. Integracje zewnętrzne
 
-### 7.1 Stripe — płatności
+### 9.1 Stripe — płatności
 
 ```typescript
 // lib/stripe.ts
@@ -475,7 +646,7 @@ customer.subscription.deleted → downgrade do Free
 invoice.payment_failed        → email z alertem
 ```
 
-### 7.2 Resend — emaile transakcyjne
+### 9.2 Resend — emaile transakcyjne
 
 Trzy emaile w MVP:
 
@@ -493,7 +664,7 @@ Trzy emaile w MVP:
    - Treść: potwierdzenie, link do faktury
 ```
 
-### 7.3 Supabase Auth
+### 9.3 Supabase Auth
 
 Obsługiwane metody logowania w MVP:
 - Email + hasło (obowiązkowe)
@@ -502,7 +673,7 @@ Obsługiwane metody logowania w MVP:
 
 ---
 
-## 8. Bezpieczeństwo i RODO
+## 10. Bezpieczeństwo i RODO
 
 ### Wymagania obowiązkowe przed launchem
 
@@ -545,19 +716,22 @@ RESEND_API_KEY=
 
 ---
 
-## 9. Plan 8 tygodni
+## 11. Plan 8 tygodni
 
 ### Tydzień 1–2 — Fundament
 
 **Cel: działa rejestracja, logowanie i onboarding**
 
 ```
-☐ Setup projektu Next.js + Supabase + Vercel
-☐ Schemat bazy danych + RLS policies
-☐ Rejestracja i logowanie (email + hasło)
-☐ Middleware auth guard dla /dashboard/*
-☐ Onboarding — formularz profilu firmy (3 kroki)
-☐ Layout dashboardu z nawigacją
+☑ Setup projektu Next.js + Supabase + Vercel
+☑ Schemat bazy danych + RLS policies
+☑ Rejestracja i logowanie (email + hasło)
+☑ Middleware auth guard dla /dashboard/*
+☑ Onboarding — formularz profilu firmy (3 kroki)
+☑ Layout dashboardu z nawigacją
+☑ Reset hasła (forgot-password + reset-password)
+☑ Role użytkowników (user/admin) + panel administratora
+☑ Obsługa błędów (timeout API, brak internetu, error boundary)
 ```
 
 **Definicja done tygodnia:** Można założyć konto, przejść onboarding i zobaczyć pusty dashboard.
@@ -606,9 +780,9 @@ RESEND_API_KEY=
 **Cel: produkt gotowy do pokazania klientom**
 
 ```
-☐ Strona /history z listą poprzednich odpowiedzi
-☐ Edycja profilu firmy w /settings
-☐ Obsługa błędów (timeout API, brak internetu)
+☑ Strona /history z listą poprzednich odpowiedzi
+☑ Edycja profilu firmy w /settings
+☑ Obsługa błędów (timeout API, brak internetu)
 ☐ Loading states wszędzie
 ☐ Responsywność mobilna (dashboard używany na telefonie)
 ☐ Testy manualne pełnego flow: rejestracja → generacja → płatność
@@ -632,7 +806,7 @@ RESEND_API_KEY=
 
 ---
 
-## 10. Podział zadań
+## 12. Podział zadań
 
 ### Osoba A — Frontend & UX
 
@@ -662,23 +836,25 @@ Tydzień 8:    Deployment produkcyjny, domena, zmienne env
 
 ---
 
-## 11. Definicja Done
+## 13. Definicja Done
 
 Cały MVP jest skończony gdy:
 
-- [ ] Użytkownik może się zarejestrować i przejść onboarding
+- [x] Użytkownik może się zarejestrować i przejść onboarding
 - [ ] Użytkownik na planie Free ma limit 5 generacji/mies.
 - [ ] Generacja odpowiedzi działa w < 5 sekund
 - [ ] Użytkownik może przejść na plan Pro przez Stripe
 - [ ] Użytkownik na Pro nie ma limitu generacji
-- [ ] Użytkownik może zobaczyć historię ostatnich 30 odpowiedzi
+- [x] Użytkownik może zobaczyć historię ostatnich 30 odpowiedzi
 - [ ] Aplikacja działa poprawnie na telefonie (375px+)
 - [ ] Brak błędów krytycznych w Sentry przez 48h po launchu
 - [ ] Trzech znajomych przetestowało produkt i nie mieli blokerów
+- [x] Nowi użytkownicy mają rolę `user`, admin ma dostęp do panelu `/admin`
+- [x] Błędy API (timeout, brak sieci) obsłużone z komunikatami PL
 
 ---
 
-## 12. Co odpuszczamy w MVP
+## 14. Co odpuszczamy w MVP
 
 Poniższe funkcje są **świadomie pominięte** — nie dlatego że nieważne, ale żeby nie opóźnić launchu.
 

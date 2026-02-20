@@ -42,21 +42,30 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes — redirect to login if not authenticated
-  if (
-    !user &&
-    request.nextUrl.pathname.startsWith("/dashboard") ||
-    !user &&
-    request.nextUrl.pathname.startsWith("/history") ||
-    !user &&
-    request.nextUrl.pathname.startsWith("/settings") ||
-    !user &&
-    request.nextUrl.pathname.startsWith("/billing") ||
-    !user &&
-    request.nextUrl.pathname.startsWith("/onboarding")
-  ) {
+  const protectedPrefixes = ["/dashboard", "/history", "/settings", "/billing", "/account", "/onboarding", "/admin"];
+  const isProtected = protectedPrefixes.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  );
+
+  if (!user && isProtected) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Admin-only route — check role
+  if (user && request.nextUrl.pathname.startsWith("/admin")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   // Redirect logged-in users away from login page
