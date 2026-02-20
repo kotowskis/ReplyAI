@@ -47,17 +47,34 @@ export async function POST(req: Request) {
     const company = companies[0];
 
     // 4. Check subscription limit
-    const { data: subscription } = await supabase
+    let { data: subscription } = await supabase
       .from("subscriptions")
       .select("plan, generations_used, generations_limit")
       .eq("company_id", company.id)
       .single();
 
+    // Auto-create free subscription if missing (trigger may not have fired)
     if (!subscription) {
-      return NextResponse.json(
-        { error: "Nie znaleziono subskrypcji" },
-        { status: 400 }
-      );
+      const { data: newSub } = await supabase
+        .from("subscriptions")
+        .insert({
+          company_id: company.id,
+          plan: "free",
+          status: "active",
+          generations_limit: 5,
+          generations_used: 0,
+        })
+        .select("plan, generations_used, generations_limit")
+        .single();
+
+      subscription = newSub;
+
+      if (!subscription) {
+        return NextResponse.json(
+          { error: "Nie udało się utworzyć subskrypcji" },
+          { status: 500 }
+        );
+      }
     }
 
     const isUnlimited = subscription.generations_limit === -1;

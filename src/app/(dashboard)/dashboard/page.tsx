@@ -24,11 +24,28 @@ export default async function DashboardPage() {
   const company = companies[0];
 
   // Get subscription info
-  const { data: subscription } = await supabase
+  let { data: subscription } = await supabase
     .from("subscriptions")
     .select("plan, generations_used, generations_limit")
     .eq("company_id", company.id)
     .single();
+
+  // Auto-create free subscription if missing (trigger may not have fired)
+  if (!subscription) {
+    const { data: newSub } = await supabase
+      .from("subscriptions")
+      .insert({
+        company_id: company.id,
+        plan: "free",
+        status: "active",
+        generations_limit: 5,
+        generations_used: 0,
+      })
+      .select("plan, generations_used, generations_limit")
+      .single();
+
+    subscription = newSub;
+  }
 
   const used = subscription?.generations_used ?? 0;
   const limit = subscription?.generations_limit ?? 5;
