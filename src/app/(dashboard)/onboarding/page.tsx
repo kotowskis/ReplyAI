@@ -58,6 +58,17 @@ export default function OnboardingPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Nie jesteś zalogowany");
 
+      // Ensure profile exists (trigger may not have fired for pre-migration users)
+      const { error: profileError } = await supabase.from("profiles").upsert(
+        {
+          id: user.id,
+          email: user.email!,
+          full_name: user.user_metadata?.full_name || "",
+        },
+        { onConflict: "id" }
+      );
+      if (profileError) throw new Error(profileError.message);
+
       const { error: insertError } = await supabase.from("companies").insert({
         owner_id: user.id,
         name,
