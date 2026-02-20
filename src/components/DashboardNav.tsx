@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LogOut, MessageSquareReply, History, Settings, CreditCard } from "lucide-react";
+import { LogOut, MessageSquareReply, History, Settings, CreditCard, User } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Generator", icon: MessageSquareReply },
   { href: "/history", label: "Historia", icon: History },
   { href: "/settings", label: "Ustawienia", icon: Settings },
+  { href: "/account", label: "Konto", icon: User },
   { href: "/billing", label: "Subskrypcja", icon: CreditCard },
 ];
 
