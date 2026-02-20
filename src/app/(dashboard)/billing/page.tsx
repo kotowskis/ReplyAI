@@ -1,24 +1,65 @@
-import { CreditCard } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { PLANS } from "@/lib/stripe";
+import { BillingClient } from "./BillingClient";
 
-export default function BillingPage() {
+export default async function BillingPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("owner_id", user.id)
+    .limit(1);
+
+  if (!companies || companies.length === 0) redirect("/onboarding");
+
+  const companyId = companies[0].id;
+
+  let { data: subscription } = await supabase
+    .from("subscriptions")
+    .select(
+      "plan, status, generations_used, generations_limit, stripe_customer_id, current_period_end"
+    )
+    .eq("company_id", companyId)
+    .single();
+
+  if (!subscription) {
+    const { data: newSub } = await supabase
+      .from("subscriptions")
+      .insert({
+        company_id: companyId,
+        plan: "free",
+        status: "active",
+        generations_limit: 5,
+        generations_used: 0,
+      })
+      .select(
+        "plan, status, generations_used, generations_limit, stripe_customer_id, current_period_end"
+      )
+      .single();
+
+    subscription = newSub;
+  }
+
+  const plan = (subscription?.plan as keyof typeof PLANS) ?? "free";
+  const hasStripeSubscription = !!subscription?.stripe_customer_id;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Subskrypcja</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Zarządzaj swoim planem i płatnościami.
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-12 text-center">
-        <CreditCard className="mx-auto h-12 w-12 text-zinc-300" />
-        <h3 className="mt-4 text-lg font-medium text-zinc-900">
-          Płatności Stripe
-        </h3>
-        <p className="mt-2 text-sm text-zinc-500">
-          Integracja Stripe zostanie dodana w Tygodniu 5-6.
-        </p>
-      </div>
-    </div>
+    <BillingClient
+      currentPlan={plan}
+      status={subscription?.status ?? "active"}
+      generationsUsed={subscription?.generations_used ?? 0}
+      generationsLimit={subscription?.generations_limit ?? 5}
+      hasStripeSubscription={hasStripeSubscription}
+      currentPeriodEnd={subscription?.current_period_end ?? null}
+      proPriceId={PLANS.pro.stripePriceId}
+      agencyPriceId={PLANS.agency.stripePriceId}
+    />
   );
 }
