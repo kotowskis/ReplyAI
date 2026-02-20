@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
 import { SYSTEM_PROMPT, buildPrompt } from "@/lib/prompts";
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 
 export async function POST(req: Request) {
   try {
@@ -31,11 +32,19 @@ export async function POST(req: Request) {
     }
 
     // 3. Get user's company
-    const { data: companies } = await supabase
+    const { data: companies, error: companiesError } = await supabase
       .from("companies")
       .select("id, name, industry, tone, owner_name, description")
       .eq("owner_id", user.id)
       .limit(1);
+
+    if (companiesError) {
+      console.error("Supabase companies query error:", companiesError);
+      return NextResponse.json(
+        { error: "db_error", message: "Błąd połączenia z bazą danych. Spróbuj ponownie." },
+        { status: 503 }
+      );
+    }
 
     if (!companies || companies.length === 0) {
       return NextResponse.json(
@@ -47,11 +56,19 @@ export async function POST(req: Request) {
     const company = companies[0];
 
     // 4. Check subscription limit
-    let { data: subscription } = await supabase
+    let { data: subscription, error: subError } = await supabase
       .from("subscriptions")
       .select("plan, generations_used, generations_limit")
       .eq("company_id", company.id)
       .single();
+
+    if (subError && subError.code !== "PGRST116") {
+      console.error("Supabase subscription query error:", subError);
+      return NextResponse.json(
+        { error: "db_error", message: "Błąd połączenia z bazą danych. Spróbuj ponownie." },
+        { status: 503 }
+      );
+    }
 
     // Auto-create free subscription if missing (trigger may not have fired)
     if (!subscription) {
@@ -105,18 +122,60 @@ export async function POST(req: Request) {
       },
     });
 
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 400,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+    let message;
+    try {
+      message = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 400,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+    } catch (aiError) {
+      console.error("Claude API error:", aiError);
+
+      if (aiError instanceof Anthropic.APIConnectionError) {
+        return NextResponse.json(
+          { error: "ai_unavailable", message: "Nie udało się połączyć z API. Spróbuj za chwilę." },
+          { status: 502 }
+        );
+      }
+      if (aiError instanceof Anthropic.APIConnectionTimeoutError) {
+        return NextResponse.json(
+          { error: "ai_timeout", message: "Generowanie trwa zbyt długo. Spróbuj ponownie." },
+          { status: 504 }
+        );
+      }
+      if (aiError instanceof Anthropic.RateLimitError) {
+        return NextResponse.json(
+          { error: "ai_overloaded", message: "Serwer AI jest przeciążony. Spróbuj za minutę." },
+          { status: 429 }
+        );
+      }
+      if (aiError instanceof Anthropic.APIError && aiError.status >= 500) {
+        return NextResponse.json(
+          { error: "ai_unavailable", message: "Serwer AI jest chwilowo niedostępny. Spróbuj za chwilę." },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "ai_error", message: "Błąd podczas generowania odpowiedzi. Spróbuj ponownie." },
+        { status: 500 }
+      );
+    }
 
     const reply =
-      message.content[0].type === "text" ? message.content[0].text : "";
+      message.content[0]?.type === "text" ? message.content[0].text : "";
+
+    if (!reply) {
+      return NextResponse.json(
+        { error: "ai_error", message: "AI nie wygenerowało odpowiedzi. Spróbuj ponownie." },
+        { status: 500 }
+      );
+    }
 
     // 6. Save generation to database
-    await supabase.from("generations").insert({
+    const { error: insertError } = await supabase.from("generations").insert({
       company_id: company.id,
       review_text: reviewText.trim(),
       review_rating: rating,
@@ -125,10 +184,19 @@ export async function POST(req: Request) {
       tokens_used: message.usage.input_tokens + message.usage.output_tokens,
     });
 
+    if (insertError) {
+      console.error("Failed to save generation:", insertError);
+      // Don't fail the request — the user got their reply, saving is secondary
+    }
+
     // 7. Increment usage counter
-    await supabase.rpc("increment_generations", {
+    const { error: rpcError } = await supabase.rpc("increment_generations", {
       p_company_id: company.id,
     });
+
+    if (rpcError) {
+      console.error("Failed to increment generations counter:", rpcError);
+    }
 
     return NextResponse.json({
       reply,
@@ -140,7 +208,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Generate error:", error);
     return NextResponse.json(
-      { error: "Wystąpił błąd podczas generowania odpowiedzi" },
+      { error: "server_error", message: "Wystąpił nieoczekiwany błąd. Spróbuj ponownie." },
       { status: 500 }
     );
   }

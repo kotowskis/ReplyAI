@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Star, Loader2, Sparkles } from "lucide-react";
+import { Star, Loader2, Sparkles, WifiOff, RefreshCw } from "lucide-react";
 
 const PLATFORMS = [
   { value: "google", label: "Google" },
   { value: "facebook", label: "Facebook" },
   { value: "booking", label: "Booking.com" },
 ];
+
+const FETCH_TIMEOUT_MS = 35_000; // 35s — slightly more than server's 30s Claude timeout
 
 interface GeneratorFormProps {
   onGenerated: (reply: string) => void;
@@ -26,20 +28,39 @@ export default function GeneratorForm({
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errorType, setErrorType] = useState<"network" | "timeout" | "limit" | "server" | "">("");
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleRetry() {
+    handleSubmit();
+  }
+
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!reviewText.trim() || loading || disabled) return;
+
+    // Check online status before making request
+    if (!navigator.onLine) {
+      setError("Brak połączenia z internetem. Sprawdź swoje połączenie i spróbuj ponownie.");
+      setErrorType("network");
+      return;
+    }
 
     setLoading(true);
     setError("");
+    setErrorType("");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reviewText, rating, platform }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -48,8 +69,19 @@ export default function GeneratorForm({
           setError(
             "Osiągnięto limit generacji w tym miesiącu. Przejdź na plan Pro, aby mieć nieograniczone generacje."
           );
+          setErrorType("limit");
+        } else if (data.error === "ai_timeout") {
+          setError(data.message || "Generowanie trwa zbyt długo. Spróbuj ponownie.");
+          setErrorType("timeout");
+        } else if (data.error === "ai_overloaded") {
+          setError(data.message || "Serwer AI jest przeciążony. Spróbuj za minutę.");
+          setErrorType("timeout");
+        } else if (data.error === "ai_unavailable" || data.error === "db_error") {
+          setError(data.message || "Usługa jest chwilowo niedostępna. Spróbuj za chwilę.");
+          setErrorType("server");
         } else {
-          setError(data.error || "Wystąpił błąd");
+          setError(data.message || data.error || "Wystąpił błąd");
+          setErrorType("server");
         }
         return;
       }
@@ -58,8 +90,19 @@ export default function GeneratorForm({
       onUsageUpdate(data.usage.used, data.usage.limit);
       setReviewText("");
       setRating(null);
-    } catch {
-      setError("Nie udało się połączyć z serwerem. Spróbuj ponownie.");
+    } catch (err) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Generowanie trwa zbyt długo. Sprawdź połączenie z internetem i spróbuj ponownie.");
+        setErrorType("timeout");
+      } else if (!navigator.onLine) {
+        setError("Utracono połączenie z internetem. Sprawdź swoje połączenie i spróbuj ponownie.");
+        setErrorType("network");
+      } else {
+        setError("Nie udało się połączyć z serwerem. Spróbuj ponownie.");
+        setErrorType("network");
+      }
     } finally {
       setLoading(false);
     }
@@ -141,8 +184,31 @@ export default function GeneratorForm({
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            errorType === "limit"
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            {errorType === "network" && (
+              <WifiOff className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            )}
+            <div className="flex-1">
+              <p>{error}</p>
+              {(errorType === "network" || errorType === "timeout" || errorType === "server") && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium underline underline-offset-2 hover:no-underline"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Spróbuj ponownie
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
