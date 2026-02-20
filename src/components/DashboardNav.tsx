@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LogOut, MessageSquareReply, History, Settings, CreditCard, User } from "lucide-react";
+import { LogOut, MessageSquareReply, History, Settings, CreditCard, User, ShieldCheck } from "lucide-react";
+import type { UserRole } from "@/lib/roles";
 
 const navItems = [
   { href: "/dashboard", label: "Generator", icon: MessageSquareReply },
@@ -18,10 +19,12 @@ export function DashboardNav({
   userEmail,
   companyName,
   hasCompany,
+  role = "user",
 }: {
   userEmail: string;
   companyName?: string;
   hasCompany: boolean;
+  role?: UserRole;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -60,6 +63,20 @@ export function DashboardNav({
                   </Link>
                 );
               })}
+              {role === "admin" && (
+                <Link
+                  href="/admin"
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    pathname === "/admin"
+                      ? "bg-red-50 text-red-700"
+                      : "text-red-600 hover:bg-red-50 hover:text-red-700"
+                  )}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Admin
+                </Link>
+              )}
             </div>
           )}
         </div>
