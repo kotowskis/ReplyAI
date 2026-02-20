@@ -34,33 +34,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- 4. RLS — admins can read all profiles
--- ============================================================
-CREATE POLICY "Admins can read all profiles"
-  ON profiles FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
-
--- Admins can read all companies (for admin panel)
-CREATE POLICY "Admins can read all companies"
-  ON companies FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
-
--- Admins can read all subscriptions
-CREATE POLICY "Admins can read all subscriptions"
-  ON subscriptions FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
-
--- Admins can read all generations
-CREATE POLICY "Admins can read all generations"
-  ON generations FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
-
--- ============================================================
--- 5. HELPER FUNCTION — check if user is admin
+-- 4. HELPER FUNCTION — check if user is admin (SECURITY DEFINER bypasses RLS)
 -- ============================================================
 CREATE OR REPLACE FUNCTION is_admin(p_user_id UUID)
 RETURNS BOOLEAN AS $$
@@ -70,6 +44,32 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- 5. RLS — admins can read all profiles (uses is_admin() to avoid recursion)
+-- ============================================================
+CREATE POLICY "Admins can read all profiles"
+  ON profiles FOR SELECT USING (
+    is_admin(auth.uid())
+  );
+
+-- Admins can read all companies (for admin panel)
+CREATE POLICY "Admins can read all companies"
+  ON companies FOR SELECT USING (
+    is_admin(auth.uid())
+  );
+
+-- Admins can read all subscriptions
+CREATE POLICY "Admins can read all subscriptions"
+  ON subscriptions FOR SELECT USING (
+    is_admin(auth.uid())
+  );
+
+-- Admins can read all generations
+CREATE POLICY "Admins can read all generations"
+  ON generations FOR SELECT USING (
+    is_admin(auth.uid())
+  );
 
 -- ============================================================
 -- 6. PROMOTE USER TO ADMIN (run manually for first admin)
