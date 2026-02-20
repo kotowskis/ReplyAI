@@ -1,65 +1,131 @@
-import Image from "next/image";
+import Link from "next/link";
+import { MessageSquareReply, Zap, Shield, Star } from "lucide-react";
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="border-b border-zinc-100">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+          <span className="text-xl font-bold text-zinc-900">ReplyAI</span>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/pricing"
+              className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Cennik
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
-              Learning
-            </a>{" "}
-            center.
+              Zaloguj się
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+          Odpowiadaj na opinie klientów
+          <br />
+          <span className="text-blue-600">w kilka sekund</span>
+        </h1>
+        <p className="mx-auto mt-6 max-w-xl text-lg text-zinc-600">
+          ReplyAI generuje profesjonalne, spersonalizowane odpowiedzi na opinie
+          z Google i Facebooka. Oszczędź czas i buduj reputację firmy.
+        </p>
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <Link
+            href="/login"
+            className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Zacznij za darmo
+          </Link>
+          <Link
+            href="/pricing"
+            className="rounded-lg border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Zobacz cennik
+          </Link>
+        </div>
+        <p className="mt-4 text-xs text-zinc-400">
+          5 darmowych odpowiedzi miesięcznie. Bez karty kredytowej.
+        </p>
+      </section>
+
+      {/* Features */}
+      <section className="border-t border-zinc-100 bg-zinc-50 py-16">
+        <div className="mx-auto max-w-4xl px-4">
+          <h2 className="text-center text-2xl font-bold text-zinc-900">
+            Jak to działa?
+          </h2>
+          <div className="mt-12 grid gap-8 sm:grid-cols-3">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
+                <MessageSquareReply className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="mt-4 font-semibold text-zinc-900">
+                1. Wklej opinię
+              </h3>
+              <p className="mt-2 text-sm text-zinc-500">
+                Skopiuj treść opinii z Google Maps lub Facebooka i wklej do
+                ReplyAI.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
+                <Zap className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="mt-4 font-semibold text-zinc-900">
+                2. Generuj odpowiedź
+              </h3>
+              <p className="mt-2 text-sm text-zinc-500">
+                AI tworzy spersonalizowaną odpowiedź w tonie Twojej firmy w
+                kilka sekund.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
+                <Star className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="mt-4 font-semibold text-zinc-900">
+                3. Kopiuj i publikuj
+              </h3>
+              <p className="mt-2 text-sm text-zinc-500">
+                Przejrzyj odpowiedź, opcjonalnie edytuj i wklej bezpośrednio w
+                Google.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social proof */}
+      <section className="py-16">
+        <div className="mx-auto max-w-4xl px-4 text-center">
+          <div className="flex items-center justify-center gap-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Shield key={i} className="h-5 w-5 text-blue-600" />
+            ))}
+          </div>
+          <p className="mt-4 text-lg font-medium text-zinc-900">
+            Bezpieczne i zgodne z RODO
+          </p>
+          <p className="mt-2 text-sm text-zinc-500">
+            Dane przechowywane w UE. Nie zapisujemy danych klientów Twojej
+            firmy.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-zinc-100 py-8">
+        <div className="mx-auto max-w-5xl px-4 text-center text-sm text-zinc-400">
+          &copy; 2026 ReplyAI. Wszystkie prawa zastrzeżone.
         </div>
-      </main>
+      </footer>
     </div>
   );
 }
