@@ -58,8 +58,17 @@ CREATE TABLE companies (
 
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users see own companies"
-  ON companies FOR ALL USING (owner_id = auth.uid());
+CREATE POLICY "Users can read own companies"
+  ON companies FOR SELECT USING (owner_id = auth.uid());
+
+CREATE POLICY "Users can insert own companies"
+  ON companies FOR INSERT WITH CHECK (owner_id = auth.uid());
+
+CREATE POLICY "Users can update own companies"
+  ON companies FOR UPDATE USING (owner_id = auth.uid());
+
+CREATE POLICY "Users can delete own companies"
+  ON companies FOR DELETE USING (owner_id = auth.uid());
 
 CREATE INDEX idx_companies_owner ON companies(owner_id);
 
@@ -82,8 +91,18 @@ CREATE TABLE subscriptions (
 
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users see own subscriptions"
-  ON subscriptions FOR ALL USING (
+CREATE POLICY "Users can read own subscriptions"
+  ON subscriptions FOR SELECT USING (
+    company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
+  );
+
+CREATE POLICY "Users can insert own subscriptions"
+  ON subscriptions FOR INSERT WITH CHECK (
+    company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
+  );
+
+CREATE POLICY "Users can update own subscriptions"
+  ON subscriptions FOR UPDATE USING (
     company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
 
@@ -106,8 +125,13 @@ CREATE TABLE generations (
 
 ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users see own generations"
-  ON generations FOR ALL USING (
+CREATE POLICY "Users can read own generations"
+  ON generations FOR SELECT USING (
+    company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
+  );
+
+CREATE POLICY "Users can insert own generations"
+  ON generations FOR INSERT WITH CHECK (
     company_id IN (SELECT id FROM companies WHERE owner_id = auth.uid())
   );
 

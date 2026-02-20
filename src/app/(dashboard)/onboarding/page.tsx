@@ -68,10 +68,10 @@ export default function OnboardingPage() {
         language,
       });
 
-      if (insertError) throw insertError;
+      if (insertError) throw new Error(insertError.message);
 
       router.push("/dashboard");
-      router.refresh();
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Wystąpił błąd");
     } finally {
