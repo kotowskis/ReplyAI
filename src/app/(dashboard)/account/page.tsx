@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
+import DeleteAccountSection from "@/components/DeleteAccountSection";
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -55,6 +56,8 @@ export default async function AccountPage() {
         </h2>
         <ChangePasswordForm />
       </div>
+
+      <DeleteAccountSection />
     </div>
   );
 }
