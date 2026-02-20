@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Mode = "login" | "register";
 
@@ -131,6 +132,17 @@ export default function LoginPage() {
               required
             />
           </div>
+
+          {mode === "login" && (
+            <div className="text-right">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                Zapomniałeś hasła?
+              </Link>
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
