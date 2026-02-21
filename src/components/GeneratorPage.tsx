@@ -17,18 +17,24 @@ export default function GeneratorPage({
   plan,
 }: GeneratorPageProps) {
   const [reply, setReply] = useState<string | null>(null);
+  const [generationId, setGenerationId] = useState<string | null>(null);
   const [used, setUsed] = useState(initialUsed);
   const [limit] = useState(initialLimit);
 
   const isUnlimited = limit === -1;
   const isAtLimit = !isUnlimited && used >= limit;
 
-  function handleGenerated(newReply: string) {
+  function handleGenerated(newReply: string, newGenerationId: string | null) {
     setReply(newReply);
+    setGenerationId(newGenerationId);
   }
 
   function handleUsageUpdate(newUsed: number) {
     setUsed(newUsed);
+  }
+
+  function handleReplySaved(newReply: string) {
+    setReply(newReply);
   }
 
   return (
@@ -52,7 +58,13 @@ export default function GeneratorPage({
         />
       </div>
 
-      {reply && <ReplyOutput reply={reply} />}
+      {reply && (
+        <ReplyOutput
+          reply={reply}
+          generationId={generationId}
+          onReplySaved={handleReplySaved}
+        />
+      )}
     </div>
   );
 }
