@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -26,6 +27,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      if (mode === "register" && !acceptedTerms) {
+        setError("Musisz zaakceptować Regulamin i Politykę prywatności.");
+        setLoading(false);
+        return;
+      }
+
       if (mode === "register") {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -146,6 +153,36 @@ export default function LoginPage() {
             </div>
           )}
 
+          {mode === "register" && (
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-xs leading-relaxed text-zinc-500">
+                Akceptuję{" "}
+                <Link
+                  href="/regulamin"
+                  target="_blank"
+                  className="text-blue-600 underline hover:text-blue-700"
+                >
+                  Regulamin
+                </Link>{" "}
+                oraz{" "}
+                <Link
+                  href="/polityka-prywatnosci"
+                  target="_blank"
+                  className="text-blue-600 underline hover:text-blue-700"
+                >
+                  Politykę prywatności
+                </Link>
+                .
+              </span>
+            </label>
+          )}
+
           {error && (
             <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
               {error}
@@ -179,6 +216,7 @@ export default function LoginPage() {
                 onClick={() => {
                   setMode("register");
                   setError(null);
+                  setAcceptedTerms(false);
                 }}
                 className="font-medium text-blue-600 hover:text-blue-500"
               >
