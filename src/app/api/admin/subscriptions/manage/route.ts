@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserRole, isAdmin } from "@/lib/roles";
+import { logAdminAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 
 const PLAN_LIMITS: Record<string, number> = {
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      await logAdminAction({
+        adminId: user.id,
+        action: "change_plan",
+        targetType: "subscription",
+        targetId: subscriptionId,
+        details: { plan, generations_limit: PLAN_LIMITS[plan] },
+      });
+
       return NextResponse.json({
         success: true,
         plan,
@@ -87,6 +96,13 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+
+      await logAdminAction({
+        adminId: user.id,
+        action: "reset_usage",
+        targetType: "subscription",
+        targetId: subscriptionId,
+      });
 
       return NextResponse.json({ success: true, generations_used: 0 });
     }
@@ -113,6 +129,14 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+
+      await logAdminAction({
+        adminId: user.id,
+        action: "set_limit",
+        targetType: "subscription",
+        targetId: subscriptionId,
+        details: { generations_limit: generationsLimit },
+      });
 
       return NextResponse.json({
         success: true,

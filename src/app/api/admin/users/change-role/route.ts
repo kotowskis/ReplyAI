@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserRole, isAdmin, UserRole } from "@/lib/roles";
+import { logAdminAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 
 const VALID_ROLES: UserRole[] = ["user", "admin"];
@@ -56,6 +57,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction({
+      adminId: user.id,
+      action: "change_role",
+      targetType: "user",
+      targetId: userId,
+      details: { role },
+    });
 
     return NextResponse.json({ success: true, role });
   } catch {

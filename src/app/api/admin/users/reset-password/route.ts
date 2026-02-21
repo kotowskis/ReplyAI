@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserRole, isAdmin } from "@/lib/roles";
+import { logAdminAction } from "@/lib/audit";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -38,6 +39,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    await logAdminAction({
+      adminId: user.id,
+      action: "reset_password",
+      targetType: "user",
+      targetId: email,
+      details: { email },
+    });
 
     return NextResponse.json({ success: true });
   } catch {

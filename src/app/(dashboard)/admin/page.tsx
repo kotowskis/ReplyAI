@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
+  ScrollText,
 } from "lucide-react";
 import Link from "next/link";
 import { AdminUsersSearch } from "./AdminUsersSearch";
@@ -110,6 +111,13 @@ export default async function AdminPage({
           >
             <BarChart3 className="h-4 w-4 text-blue-600" />
             Analityka
+          </Link>
+          <Link
+            href="/admin/logs"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <ScrollText className="h-4 w-4 text-violet-600" />
+            Logi
           </Link>
         </div>
       </div>
