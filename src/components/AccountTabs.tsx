@@ -1,11 +1,12 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { User, Settings, CreditCard } from "lucide-react";
+import { User, Settings, CreditCard, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
 import SettingsForm from "@/components/SettingsForm";
+import GoogleConnectionSection from "@/components/GoogleConnectionSection";
 import { BillingClient } from "@/app/(dashboard)/billing/BillingClient";
 import type { PlanKey } from "@/lib/stripe";
 
@@ -17,6 +18,9 @@ interface Company {
   language: string;
   description: string | null;
   owner_name: string | null;
+  google_location_name: string | null;
+  google_connected_at: string | null;
+  google_oauth_tokens: string | null;
 }
 
 interface AccountTabsProps {
@@ -38,6 +42,7 @@ interface AccountTabsProps {
 const tabs = [
   { key: "profil", label: "Profil", icon: User },
   { key: "ustawienia", label: "Ustawienia", icon: Settings },
+  { key: "google", label: "Google", icon: Link2 },
   { key: "subskrypcja", label: "Subskrypcja", icon: CreditCard },
 ] as const;
 
@@ -138,6 +143,17 @@ export default function AccountTabs({
       )}
 
       {currentTab === "ustawienia" && <SettingsForm company={company} />}
+
+      {currentTab === "google" && (
+        <GoogleConnectionSection
+          companyId={company.id}
+          isConnected={!!company.google_oauth_tokens}
+          locationName={company.google_location_name}
+          connectedAt={company.google_connected_at}
+          showSelector={searchParams.get("step") === "select"}
+          oauthError={searchParams.get("error")}
+        />
+      )}
 
       {currentTab === "subskrypcja" && (
         <BillingClient

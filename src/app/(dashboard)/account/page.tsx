@@ -20,7 +20,7 @@ export default async function AccountPage() {
       .single(),
     supabase
       .from("companies")
-      .select("id, name, industry, tone, language, description, owner_name")
+      .select("id, name, industry, tone, language, description, owner_name, google_location_name, google_connected_at, google_oauth_tokens")
       .eq("owner_id", user.id)
       .limit(1),
   ]);
@@ -32,7 +32,12 @@ export default async function AccountPage() {
     redirect("/onboarding");
   }
 
-  const company = companies[0];
+  // Nie wysyłaj zaszyfrowanych tokenów do klienta — przekaż tylko flagę
+  const companyRaw = companies[0];
+  const company = {
+    ...companyRaw,
+    google_oauth_tokens: companyRaw.google_oauth_tokens ? "__connected__" : null,
+  };
 
   // Fetch subscription
   let { data: subscription } = await supabase
