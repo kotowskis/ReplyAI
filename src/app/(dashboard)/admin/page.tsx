@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getUserRole, isAdmin } from "@/lib/roles";
-import { ShieldCheck, Users, Building2, Zap } from "lucide-react";
+import { ShieldCheck, Users, Building2, Zap, Eye } from "lucide-react";
+import Link from "next/link";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -95,6 +96,7 @@ export default async function AdminPage() {
                 <th className="px-4 py-3 font-medium">Imię</th>
                 <th className="px-4 py-3 font-medium">Rola</th>
                 <th className="px-4 py-3 font-medium">Data rejestracji</th>
+                <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -125,12 +127,21 @@ export default async function AdminPage() {
                       year: "numeric",
                     })}
                   </td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/users/${u.id}`}
+                      className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Szczegóły
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {(!recentUsers || recentUsers.length === 0) && (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-4 py-8 text-center text-zinc-400"
                   >
                     Brak użytkowników
