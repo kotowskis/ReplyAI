@@ -9,6 +9,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { AdminUsersSearch } from "./AdminUsersSearch";
@@ -76,16 +77,25 @@ export default async function AdminPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-red-600" />
-          <h1 className="text-2xl font-bold text-zinc-900">
-            Panel administratora
-          </h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-6 w-6 text-red-600" />
+            <h1 className="text-2xl font-bold text-zinc-900">
+              Panel administratora
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            Przegląd systemu i zarządzanie użytkownikami.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-zinc-500">
-          Przegląd systemu i zarządzanie użytkownikami.
-        </p>
+        <Link
+          href="/admin/analytics"
+          className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+        >
+          <BarChart3 className="h-4 w-4 text-blue-600" />
+          Analityka
+        </Link>
       </div>
 
       {/* Stats */}
