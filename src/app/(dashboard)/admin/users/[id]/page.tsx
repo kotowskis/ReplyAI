@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PasswordManagement } from "./PasswordManagement";
+import { RoleSwitcher } from "./RoleSwitcher";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -111,15 +112,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
             <Shield className="mt-0.5 h-4 w-4 text-zinc-400" />
             <div>
               <p className="text-xs text-zinc-400">Rola</p>
-              <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  profile.role === "admin"
-                    ? "bg-red-50 text-red-700"
-                    : "bg-zinc-100 text-zinc-600"
-                }`}
-              >
-                {profile.role === "admin" ? "Admin" : "Użytkownik"}
-              </span>
+              <RoleSwitcher
+                userId={id}
+                currentRole={profile.role ?? "user"}
+                isSelf={id === currentUser.id}
+              />
             </div>
           </div>
           <div className="flex items-start gap-3">
