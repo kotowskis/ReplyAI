@@ -11,6 +11,7 @@ import {
   ChevronRight,
   BarChart3,
   ScrollText,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { AdminUsersSearch } from "./AdminUsersSearch";
@@ -118,6 +119,13 @@ export default async function AdminPage({
           >
             <ScrollText className="h-4 w-4 text-violet-600" />
             Logi
+          </Link>
+          <Link
+            href="/admin/emails"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <Mail className="h-4 w-4 text-pink-600" />
+            Emaile
           </Link>
         </div>
       </div>
