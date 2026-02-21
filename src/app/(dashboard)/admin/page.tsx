@@ -89,7 +89,14 @@ export default async function AdminPage({
             Przegląd systemu i zarządzanie użytkownikami.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/companies"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <Building2 className="h-4 w-4 text-green-600" />
+            Firmy
+          </Link>
           <Link
             href="/admin/generations"
             className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
