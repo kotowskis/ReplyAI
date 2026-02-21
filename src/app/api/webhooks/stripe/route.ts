@@ -1,5 +1,6 @@
-import { stripe } from "@/lib/stripe";
+import { stripe, PLANS } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendProConfirmationEmail, sendPaymentFailedEmail } from "@/lib/emails";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -91,6 +92,37 @@ export async function POST(request: NextRequest) {
         if (error) {
           console.error("checkout.session.completed: DB update failed", error);
         }
+
+        // Send Pro/Agency confirmation email
+        try {
+          const { data: company } = await supabase
+            .from("companies")
+            .select("owner_id")
+            .eq("id", companyId)
+            .single();
+
+          if (company) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("email, full_name")
+              .eq("id", company.owner_id)
+              .single();
+
+            if (profile?.email) {
+              const planName = plan === "agency" ? PLANS.agency.name : PLANS.pro.name;
+              sendProConfirmationEmail(
+                profile.email,
+                profile.full_name ?? "",
+                planName,
+              ).catch((err) =>
+                console.error("Pro confirmation email failed:", err),
+              );
+            }
+          }
+        } catch (emailErr) {
+          console.error("Pro confirmation email lookup failed:", emailErr);
+        }
+
         break;
       }
 
@@ -169,6 +201,42 @@ export async function POST(request: NextRequest) {
 
           if (error) {
             console.error("invoice.payment_failed: DB update failed", error);
+          }
+
+          // Send payment failed alert email
+          try {
+            const { data: sub } = await supabase
+              .from("subscriptions")
+              .select("company_id")
+              .eq("stripe_customer_id", customerId)
+              .single();
+
+            if (sub) {
+              const { data: company } = await supabase
+                .from("companies")
+                .select("owner_id")
+                .eq("id", sub.company_id)
+                .single();
+
+              if (company) {
+                const { data: profile } = await supabase
+                  .from("profiles")
+                  .select("email, full_name")
+                  .eq("id", company.owner_id)
+                  .single();
+
+                if (profile?.email) {
+                  sendPaymentFailedEmail(
+                    profile.email,
+                    profile.full_name ?? "",
+                  ).catch((err) =>
+                    console.error("Payment failed email error:", err),
+                  );
+                }
+              }
+            }
+          } catch (emailErr) {
+            console.error("Payment failed email lookup error:", emailErr);
           }
         }
         break;

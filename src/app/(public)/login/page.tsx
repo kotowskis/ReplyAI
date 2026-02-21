@@ -45,6 +45,8 @@ export default function LoginPage() {
           return;
         }
 
+        // Fire-and-forget welcome email — don't block the redirect
+        fetch("/api/emails/welcome", { method: "POST" }).catch(() => {});
         router.push("/onboarding");
         return;
       } else {

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
 import { SYSTEM_PROMPT, buildPrompt } from "@/lib/prompts";
+import { sendLimitReachedEmail } from "@/lib/emails";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -99,6 +100,15 @@ export async function POST(req: Request) {
       !isUnlimited &&
       subscription.generations_used >= subscription.generations_limit
     ) {
+      // Send limit-reached email only on first hit (used == limit exactly)
+      if (subscription.generations_used === subscription.generations_limit) {
+        const fullName =
+          user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "";
+        sendLimitReachedEmail(user.email!, fullName).catch((err) =>
+          console.error("Limit-reached email failed:", err),
+        );
+      }
+
       return NextResponse.json(
         {
           error: "limit_reached",

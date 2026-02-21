@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { sendWelcomeEmail } from "@/lib/emails";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -18,6 +19,33 @@ export async function GET(request: NextRequest) {
       if (type === "recovery") {
         return NextResponse.redirect(new URL("/reset-password", request.url));
       }
+
+      // Send welcome email for new email confirmations (not password resets)
+      if (type === "email") {
+        try {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+
+          if (user) {
+            const createdAt = new Date(user.created_at);
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+            if (createdAt > fiveMinutesAgo) {
+              const fullName =
+                user.user_metadata?.full_name ??
+                user.email?.split("@")[0] ??
+                "";
+              sendWelcomeEmail(user.email!, fullName).catch((err) =>
+                console.error("Welcome email failed:", err),
+              );
+            }
+          }
+        } catch (emailErr) {
+          console.error("Welcome email error:", emailErr);
+        }
+      }
+
       return NextResponse.redirect(new URL(next, request.url));
     }
   }
