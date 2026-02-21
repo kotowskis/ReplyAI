@@ -684,6 +684,7 @@ Obsługiwane metody logowania w MVP:
 - [ ] Dane przechowywane w regionie EU (Supabase EU West)
 - [ ] Polityka prywatności + regulamin przed rejestracją
 - [ ] Checkbox zgody na przetwarzanie danych
+- [ ] **WYŁĄCZ MOCK GOOGLE REVIEWS** — ustaw `NEXT_PUBLIC_MOCK_GOOGLE_REVIEWS=false` (lub usuń) w `.env.local` i na Vercel. Mock zwraca 20 testowych opinii bez łączenia z Google API. Plik z danymi: `src/lib/google/mock-reviews.ts`. Docelowo usunąć cały plik mock-reviews.ts po podłączeniu prawdziwego konta Google.
 
 ### Zmienne środowiskowe
 

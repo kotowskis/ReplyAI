@@ -6,12 +6,18 @@ import {
   GoogleTokenExpiredError,
   type GBPReview,
 } from "@/lib/google/client";
+import { MOCK_REVIEWS } from "@/lib/google/mock-reviews";
 import { NextRequest, NextResponse } from "next/server";
+
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_GOOGLE_REVIEWS === "true";
 
 /**
  * GET /api/google/reviews?filter=all|unreplied|replied&rating=1-5&page=1
  * Synchronizuje opinie z Google i zwraca listę z bazy (cache).
  * Query param `sync=true` wymusza pobranie z Google API.
+ *
+ * ⚠️ MOCK MODE: Gdy NEXT_PUBLIC_MOCK_GOOGLE_REVIEWS=true, zwraca dane testowe
+ *    bez łączenia się z Google API. WYŁĄCZ PRZED PRODUKCJĄ!
  */
 export async function GET(req: NextRequest) {
   try {
@@ -24,6 +30,55 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Parse query params
+    const searchParams = req.nextUrl.searchParams;
+    const filterParam = searchParams.get("filter") ?? "all";
+    const ratingParam = searchParams.get("rating");
+    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+    const perPage = 20;
+
+    // ──────────────────────────────────────────────────
+    // MOCK MODE — dane testowe bez Google API
+    // ──────────────────────────────────────────────────
+    if (MOCK_MODE) {
+      let filtered = [...MOCK_REVIEWS];
+
+      if (filterParam === "unreplied") {
+        filtered = filtered.filter((r) => !r.reply_text);
+      } else if (filterParam === "replied") {
+        filtered = filtered.filter((r) => !!r.reply_text);
+      }
+
+      if (ratingParam) {
+        const rating = parseInt(ratingParam, 10);
+        if (rating >= 1 && rating <= 5) {
+          filtered = filtered.filter((r) => r.star_rating === rating);
+        }
+      }
+
+      // Sort by review date descending
+      filtered.sort(
+        (a, b) =>
+          new Date(b.review_created_at).getTime() -
+          new Date(a.review_created_at).getTime()
+      );
+
+      const total = filtered.length;
+      const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+
+      return NextResponse.json({
+        reviews: paginated,
+        total,
+        page,
+        perPage,
+        lastSyncedAt: new Date().toISOString(),
+        mock: true,
+      });
+    }
+
+    // ──────────────────────────────────────────────────
+    // PRODUCTION MODE — Google API + cache DB
+    // ──────────────────────────────────────────────────
     const { data: companies } = await supabase
       .from("companies")
       .select(
@@ -62,13 +117,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Parse query params
-    const searchParams = req.nextUrl.searchParams;
     const shouldSync = searchParams.get("sync") === "true";
-    const filterParam = searchParams.get("filter") ?? "all";
-    const ratingParam = searchParams.get("rating");
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const perPage = 20;
 
     // Sync with Google if requested
     if (shouldSync) {

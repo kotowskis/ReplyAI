@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { GoogleReviewsPage } from "@/components/GoogleReviewsPage";
 
+const MOCK_MODE = process.env.NEXT_PUBLIC_MOCK_GOOGLE_REVIEWS === "true";
+
 export default async function ReviewsPage() {
   const supabase = await createClient();
   const {
@@ -23,16 +25,23 @@ export default async function ReviewsPage() {
   }
 
   const company = companies[0];
-  const isGoogleConnected = !!(
-    company.google_oauth_tokens &&
-    company.google_account_id &&
-    company.google_location_id
-  );
+  const isGoogleConnected =
+    MOCK_MODE ||
+    !!(
+      company.google_oauth_tokens &&
+      company.google_account_id &&
+      company.google_location_id
+    );
 
   return (
     <GoogleReviewsPage
       isGoogleConnected={isGoogleConnected}
-      locationName={company.google_location_name}
+      locationName={
+        MOCK_MODE
+          ? "Pizzeria Da Vinci (tryb testowy)"
+          : company.google_location_name
+      }
+      mockMode={MOCK_MODE}
     />
   );
 }

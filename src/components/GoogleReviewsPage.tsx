@@ -51,9 +51,11 @@ type RatingFilter = null | 1 | 2 | 3 | 4 | 5;
 export function GoogleReviewsPage({
   isGoogleConnected,
   locationName,
+  mockMode = false,
 }: {
   isGoogleConnected: boolean;
   locationName: string | null;
+  mockMode?: boolean;
 }) {
   const [reviews, setReviews] = useState<GoogleReview[]>([]);
   const [total, setTotal] = useState(0);
@@ -175,21 +177,24 @@ export function GoogleReviewsPage({
     setError(null);
 
     try {
-      const res = await fetch("/api/google/reviews/reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reviewId,
-          comment: editedReply.trim(),
-          generationId,
-        }),
-      });
+      // W trybie mock — aktualizuj tylko lokalny state bez wywoływania API
+      if (!mockMode) {
+        const res = await fetch("/api/google/reviews/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reviewId,
+            comment: editedReply.trim(),
+            generationId,
+          }),
+        });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(
-          data.message ?? "Nie udało się opublikować odpowiedzi."
-        );
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(
+            data.message ?? "Nie udało się opublikować odpowiedzi."
+          );
+        }
       }
 
       // Update local state
@@ -300,6 +305,17 @@ export function GoogleReviewsPage({
           </button>
         </div>
       </div>
+
+      {/* Mock mode banner */}
+      {mockMode && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>Tryb testowy</strong> — wyświetlane opinie to dane mock.
+            Publikacja odpowiedzi nie trafia do Google.
+          </span>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
