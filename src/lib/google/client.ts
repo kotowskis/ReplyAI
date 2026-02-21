@@ -236,6 +236,144 @@ export async function listLocations(
 }
 
 // ============================================================
+// Google Business Profile API — Reviews
+// ============================================================
+
+export interface GBPReview {
+  name: string; // "accounts/123/locations/456/reviews/789"
+  reviewId: string;
+  reviewer: {
+    displayName: string;
+    profilePhotoUrl?: string;
+  };
+  starRating: "ONE" | "TWO" | "THREE" | "FOUR" | "FIVE";
+  comment?: string;
+  createTime: string; // ISO 8601
+  updateTime: string;
+  reviewReply?: {
+    comment: string;
+    updateTime: string;
+  };
+}
+
+interface GBPReviewsResponse {
+  reviews?: GBPReview[];
+  averageRating?: number;
+  totalReviewCount?: number;
+  nextPageToken?: string;
+}
+
+const STAR_RATING_MAP: Record<string, number> = {
+  ONE: 1,
+  TWO: 2,
+  THREE: 3,
+  FOUR: 4,
+  FIVE: 5,
+};
+
+/**
+ * Konwertuje string oceny Google na liczbę 1-5.
+ */
+export function starRatingToNumber(rating: string): number {
+  return STAR_RATING_MAP[rating] ?? 0;
+}
+
+/**
+ * Pobiera opinie Google dla lokalizacji.
+ * Używa GBP API v4 (jedyne API obsługujące reviews).
+ */
+export async function listReviews(
+  accessToken: string,
+  accountId: string,
+  locationId: string,
+  pageToken?: string
+): Promise<GBPReviewsResponse> {
+  const url = new URL(
+    `${GBP_API_V4_BASE}/${accountId}/${locationId}/reviews`
+  );
+  url.searchParams.set("pageSize", "50");
+  if (pageToken) {
+    url.searchParams.set("pageToken", pageToken);
+  }
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (response.status === 401) {
+    throw new GoogleTokenExpiredError();
+  }
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(
+      `GBP reviews list failed (${response.status}): ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Publikuje odpowiedź na opinię Google.
+ */
+export async function replyToReview(
+  accessToken: string,
+  reviewName: string,
+  comment: string
+): Promise<void> {
+  const response = await fetch(
+    `${GBP_API_V4_BASE}/${reviewName}/reply`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ comment }),
+    }
+  );
+
+  if (response.status === 401) {
+    throw new GoogleTokenExpiredError();
+  }
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(
+      `GBP reply failed (${response.status}): ${error}`
+    );
+  }
+}
+
+/**
+ * Usuwa odpowiedź na opinię Google.
+ */
+export async function deleteReviewReply(
+  accessToken: string,
+  reviewName: string
+): Promise<void> {
+  const response = await fetch(
+    `${GBP_API_V4_BASE}/${reviewName}/reply`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  if (response.status === 401) {
+    throw new GoogleTokenExpiredError();
+  }
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(
+      `GBP delete reply failed (${response.status}): ${error}`
+    );
+  }
+}
+
+// ============================================================
 // Error types
 // ============================================================
 

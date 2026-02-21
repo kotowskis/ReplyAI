@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { LogOut, MessageSquareReply, History, User, ShieldCheck } from "lucide-react";
+import { LogOut, MessageSquareReply, History, User, ShieldCheck, Star } from "lucide-react";
 import type { UserRole } from "@/lib/roles";
 
 const navItems = [
   { href: "/dashboard", label: "Generator", icon: MessageSquareReply },
+  { href: "/reviews", label: "Opinie", icon: Star },
   { href: "/history", label: "Historia", icon: History },
   { href: "/account", label: "Konto", icon: User },
 ];

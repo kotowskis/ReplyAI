@@ -676,4 +676,143 @@ npm run dev
 
 ---
 
-*Dokumentacja aktualizowana wraz z postępem integracji. Następny etap: Tydzień 11-12 (pobieranie opinii + widok z filtrami).*
+---
+
+## 14. Tydzień 11-12 — Opinie Google (pobieranie + widok z filtrami)
+
+> **Status:** Zaimplementowane
+
+### 14.1 Nowe pliki
+
+#### Biblioteka Google — rozszerzenia (`src/lib/google/client.ts`)
+
+Dodane funkcje:
+
+| Funkcja | Opis |
+|---------|------|
+| `listReviews(accessToken, accountId, locationId, pageToken?)` | Pobiera opinie z Google Business Profile API v4 |
+| `replyToReview(accessToken, reviewName, comment)` | Publikuje odpowiedź na opinię w Google |
+| `deleteReviewReply(accessToken, reviewName)` | Usuwa odpowiedź na opinię |
+| `starRatingToNumber(rating)` | Konwertuje string oceny (`"ONE"`..`"FIVE"`) na liczbę 1-5 |
+
+Nowe typy: `GBPReview`, `GBPReviewsResponse`
+
+#### Endpointy API
+
+| Plik | Metoda | Opis |
+|------|--------|------|
+| `api/google/reviews/route.ts` | GET | Sync opinii z Google + zwracanie z cache z filtrami |
+| `api/google/reviews/reply/route.ts` | POST | Publikowanie odpowiedzi na opinię w Google |
+
+#### Komponenty UI
+
+| Plik | Opis |
+|------|------|
+| `GoogleReviewsPage.tsx` | Strona opinii z filtrami, sync, generowaniem AI i publikacją |
+
+#### Strona
+
+| Plik | Opis |
+|------|------|
+| `(dashboard)/reviews/page.tsx` | Server component — strona `/reviews` |
+
+### 14.2 Endpointy API — szczegóły
+
+#### GET `/api/google/reviews`
+
+Synchronizuje opinie z Google API i zwraca cache z bazy danych.
+
+**Query params:**
+
+| Param | Typ | Domyślnie | Opis |
+|-------|-----|-----------|------|
+| `sync` | boolean | false | `true` = pobierz opinie z Google API przed zwróceniem |
+| `filter` | string | `"all"` | `"all"` \| `"unreplied"` \| `"replied"` |
+| `rating` | int | — | Filtruj po ocenie 1-5 |
+| `page` | int | 1 | Numer strony (20 opinii/stronę) |
+
+**Odpowiedź 200:**
+```json
+{
+  "reviews": [...],
+  "total": 42,
+  "page": 1,
+  "perPage": 20,
+  "lastSyncedAt": "2026-02-21T12:00:00.000Z"
+}
+```
+
+**Sync flow:**
+1. Pobierz wszystkie opinie z Google (paginacja po 50)
+2. Upsert do tabeli `google_reviews` (ON CONFLICT company_id + google_review_id)
+3. Zwróć opinie z bazy z zastosowanymi filtrami
+
+#### POST `/api/google/reviews/reply`
+
+Publikuje odpowiedź na opinię w Google i aktualizuje cache.
+
+**Body:**
+```json
+{
+  "reviewId": "uuid-z-tabeli-google-reviews",
+  "comment": "Treść odpowiedzi",
+  "generationId": "opcjonalne-uuid-powiązanie-z-generacją-AI"
+}
+```
+
+**Odpowiedź 200:**
+```json
+{ "success": true }
+```
+
+### 14.3 Widok opinii — UI
+
+```
+┌──────────────────────────────────────────────────────┐
+│ Opinie Google                    [Synchronizuj 🔄]   │
+│ 📍 Pizzeria Da Vinci     Ostatnia sync: 21 lut 12:00│
+├──────────────────────────────────────────────────────┤
+│ Status: [Wszystkie] [Bez odpowiedzi] [Z odpowiedzią]│
+│ Ocena: [1⭐] [2⭐] [3⭐] [4⭐] [5⭐]               │
+│ Znaleziono 42 opinie                                 │
+├──────────────────────────────────────────────────────┤
+│ ┌────────────────────────────────────────────────┐   │
+│ │ 👤 Jan K.  ⭐⭐⭐⭐⭐  21 lutego 2026          │   │
+│ │                               [Odpowiedź AI ✓]│   │
+│ │ Świetna pizza, super obsługa!                  │   │
+│ │ ──────────────────────────────                 │   │
+│ │ Odpowiedź właściciela:                         │   │
+│ │ Dziękujemy za miłe słowa! Zapraszamy...        │   │
+│ │ ──────────────────────────────                 │   │
+│ │ [✨ Wygeneruj nową odpowiedź]                  │   │
+│ └────────────────────────────────────────────────┘   │
+│ ┌────────────────────────────────────────────────┐   │
+│ │ 👤 Anna M.  ⭐⭐  19 lutego 2026               │   │
+│ │                             [Brak odpowiedzi]  │   │
+│ │ Zbyt długo czekaliśmy na zamówienie...         │   │
+│ │ ──────────────────────────────                 │   │
+│ │ [✨ Wygeneruj odpowiedź AI]                    │   │
+│ └────────────────────────────────────────────────┘   │
+│                                                      │
+│ Strona 1 z 3    [◀ Poprzednia]  [Następna ▶]        │
+└──────────────────────────────────────────────────────┘
+```
+
+### 14.4 Flow generowania odpowiedzi z publikacją
+
+```
+1. User klika "Wygeneruj odpowiedź AI" przy opinii
+2. POST /api/generate — używa istniejącego endpointu AI
+3. Wyświetla wygenerowaną odpowiedź w edytowalnym textarea
+4. User opcjonalnie edytuje
+5. User klika "Opublikuj w Google"
+6. POST /api/google/reviews/reply → PUT do Google API v4
+7. Cache w google_reviews zaktualizowany (reply_source = 'replyai')
+8. UI: badge "Odpowiedź AI ✓"
+```
+
+### 14.5 Nawigacja
+
+Dodany link "Opinie" (ikona Star) w `DashboardNav.tsx` między "Generator" a "Historia".
+
+*Dokumentacja aktualizowana wraz z postępem integracji.*
