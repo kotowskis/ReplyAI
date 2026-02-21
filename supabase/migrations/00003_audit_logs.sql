@@ -15,7 +15,7 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can read audit logs
 CREATE POLICY "Admins can read audit logs"
-  ON audit_logs FOR SELECT USING (public.is_admin());
+  ON audit_logs FOR SELECT USING (is_admin(auth.uid()));
 
 -- Service role inserts (no user-facing insert policy)
 CREATE INDEX idx_audit_logs_created ON audit_logs(created_at DESC);
