@@ -122,8 +122,22 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-zinc-100 py-8">
-        <div className="mx-auto max-w-5xl px-4 text-center text-sm text-zinc-400">
-          &copy; 2026 ReplyAI. Wszystkie prawa zastrzeżone.
+        <div className="mx-auto flex max-w-5xl items-center justify-center gap-4 px-4 text-sm text-zinc-400">
+          <span>&copy; 2026 ReplyAI. Wszystkie prawa zastrzeżone.</span>
+          <span className="text-zinc-200">|</span>
+          <Link
+            href="/regulamin"
+            className="hover:text-zinc-600 transition-colors"
+          >
+            Regulamin
+          </Link>
+          <span className="text-zinc-200">|</span>
+          <Link
+            href="/polityka-prywatnosci"
+            className="hover:text-zinc-600 transition-colors"
+          >
+            Polityka prywatności
+          </Link>
         </div>
       </footer>
     </div>
