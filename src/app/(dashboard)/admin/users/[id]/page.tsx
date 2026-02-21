@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { PasswordManagement } from "./PasswordManagement";
 import { RoleSwitcher } from "./RoleSwitcher";
+import { SubscriptionManager } from "./SubscriptionManager";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -199,7 +200,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                   </div>
                 </div>
                 {company.subscriptions && company.subscriptions.length > 0 && (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-3 space-y-3">
                     {company.subscriptions.map(
                       (sub: {
                         id: string;
@@ -209,38 +210,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
                         generations_limit: number;
                         stripe_subscription_id: string | null;
                       }) => (
-                        <div
+                        <SubscriptionManager
                           key={sub.id}
-                          className="flex flex-wrap items-center gap-2 text-xs"
-                        >
-                          <span
-                            className={`rounded-full px-2 py-0.5 font-medium ${
-                              sub.plan === "free"
-                                ? "bg-zinc-100 text-zinc-600"
-                                : "bg-blue-50 text-blue-700"
-                            }`}
-                          >
-                            {sub.plan}
-                          </span>
-                          <span
-                            className={`rounded-full px-2 py-0.5 font-medium ${
-                              sub.status === "active"
-                                ? "bg-green-50 text-green-700"
-                                : "bg-zinc-100 text-zinc-500"
-                            }`}
-                          >
-                            {sub.status}
-                          </span>
-                          <span className="text-zinc-500">
-                            Generacje: {sub.generations_used}/
-                            {sub.generations_limit}
-                          </span>
-                          {sub.stripe_subscription_id && (
-                            <span className="text-zinc-400">
-                              Stripe: {sub.stripe_subscription_id}
-                            </span>
-                          )}
-                        </div>
+                          subscription={sub}
+                          companyName={company.name}
+                        />
                       )
                     )}
                   </div>
