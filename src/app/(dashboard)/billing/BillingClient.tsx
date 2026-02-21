@@ -98,13 +98,6 @@ export function BillingClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Subskrypcja</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Zarządzaj swoim planem i płatnościami.
-        </p>
-      </div>
-
       {/* Success / canceled banners */}
       {success && (
         <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
