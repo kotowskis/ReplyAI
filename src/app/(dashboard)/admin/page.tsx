@@ -1,10 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getUserRole, isAdmin } from "@/lib/roles";
-import { ShieldCheck, Users, Building2, Zap, Eye } from "lucide-react";
+import {
+  ShieldCheck,
+  Users,
+  Building2,
+  Zap,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import Link from "next/link";
+import { AdminUsersSearch } from "./AdminUsersSearch";
 
-export default async function AdminPage() {
+const PAGE_SIZE = 20;
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,22 +30,49 @@ export default async function AdminPage() {
   const role = await getUserRole(supabase, user.id);
   if (!isAdmin(role)) redirect("/dashboard");
 
-  // Fetch stats
+  const params = await searchParams;
+  const query = params.q?.trim() ?? "";
+  const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  // Build users query with optional search
+  let usersQuery = supabase
+    .from("profiles")
+    .select("id, email, full_name, role, created_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (query) {
+    usersQuery = usersQuery.or(
+      `email.ilike.%${query}%,full_name.ilike.%${query}%`
+    );
+  }
+
+  // Fetch stats + paginated users
   const [
     { count: usersCount },
     { count: companiesCount },
     { count: generationsCount },
-    { data: recentUsers },
+    { data: users, count: filteredCount },
   ] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("companies").select("*", { count: "exact", head: true }),
     supabase.from("generations").select("*", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("id, email, full_name, role, created_at")
-      .order("created_at", { ascending: false })
-      .limit(20),
+    usersQuery,
   ]);
+
+  const totalUsers = filteredCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+
+  // Build pagination href helper
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/admin${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <div className="space-y-6">
@@ -83,10 +125,18 @@ export default async function AdminPage() {
 
       {/* Users table */}
       <div className="rounded-lg border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-100 px-4 py-3">
+        <div className="flex flex-col gap-3 border-b border-zinc-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-sm font-semibold text-zinc-900">
-            Ostatni użytkownicy
+            Użytkownicy
+            {query && (
+              <span className="ml-2 font-normal text-zinc-400">
+                — wyniki dla &ldquo;{query}&rdquo; ({totalUsers})
+              </span>
+            )}
           </h2>
+          <div className="w-full sm:w-72">
+            <AdminUsersSearch />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -100,7 +150,7 @@ export default async function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {recentUsers?.map((u) => (
+              {users?.map((u) => (
                 <tr
                   key={u.id}
                   className="border-b border-zinc-50 last:border-0"
@@ -138,19 +188,60 @@ export default async function AdminPage() {
                   </td>
                 </tr>
               ))}
-              {(!recentUsers || recentUsers.length === 0) && (
+              {(!users || users.length === 0) && (
                 <tr>
                   <td
                     colSpan={5}
                     className="px-4 py-8 text-center text-zinc-400"
                   >
-                    Brak użytkowników
+                    {query
+                      ? "Brak wyników dla tego wyszukiwania"
+                      : "Brak użytkowników"}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-zinc-100 px-4 py-3">
+            <span className="text-xs text-zinc-400">
+              Strona {page} z {totalPages} ({totalUsers} użytkowników)
+            </span>
+            <div className="flex items-center gap-1">
+              {page > 1 ? (
+                <Link
+                  href={pageHref(page - 1)}
+                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Poprzednia
+                </Link>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-300">
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Poprzednia
+                </span>
+              )}
+              {page < totalPages ? (
+                <Link
+                  href={pageHref(page + 1)}
+                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 transition-colors"
+                >
+                  Następna
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-300">
+                  Następna
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
