@@ -89,13 +89,22 @@ export default async function AdminPage({
             Przegląd systemu i zarządzanie użytkownikami.
           </p>
         </div>
-        <Link
-          href="/admin/analytics"
-          className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
-        >
-          <BarChart3 className="h-4 w-4 text-blue-600" />
-          Analityka
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/generations"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <Zap className="h-4 w-4 text-amber-600" />
+            Generacje
+          </Link>
+          <Link
+            href="/admin/analytics"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+          >
+            <BarChart3 className="h-4 w-4 text-blue-600" />
+            Analityka
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
