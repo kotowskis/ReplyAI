@@ -1,4 +1,4 @@
-import { resend, EMAIL_FROM } from "@/lib/resend";
+import { getResend, EMAIL_FROM } from "@/lib/resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://replyai.pl";
@@ -240,7 +240,7 @@ export async function sendWelcomeEmail(to: string, fullName: string) {
     appUrl: APP_URL,
   });
 
-  return resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+  return getResend().emails.send({ from: EMAIL_FROM, to, subject, html });
 }
 
 export async function sendLimitReachedEmail(to: string, fullName: string) {
@@ -251,7 +251,7 @@ export async function sendLimitReachedEmail(to: string, fullName: string) {
     appUrl: APP_URL,
   });
 
-  return resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+  return getResend().emails.send({ from: EMAIL_FROM, to, subject, html });
 }
 
 export async function sendProConfirmationEmail(
@@ -267,7 +267,7 @@ export async function sendProConfirmationEmail(
     appUrl: APP_URL,
   });
 
-  return resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+  return getResend().emails.send({ from: EMAIL_FROM, to, subject, html });
 }
 
 export async function sendPaymentFailedEmail(to: string, fullName: string) {
@@ -278,5 +278,5 @@ export async function sendPaymentFailedEmail(to: string, fullName: string) {
     appUrl: APP_URL,
   });
 
-  return resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+  return getResend().emails.send({ from: EMAIL_FROM, to, subject, html });
 }
