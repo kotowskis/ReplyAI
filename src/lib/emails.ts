@@ -9,7 +9,8 @@ export type EmailTemplateType =
   | "welcome"
   | "limit_reached"
   | "pro_confirmation"
-  | "payment_failed";
+  | "payment_failed"
+  | "reply_published";
 
 export interface EmailTemplate {
   type: EmailTemplateType;
@@ -24,6 +25,7 @@ export const TEMPLATE_VARIABLES: Record<EmailTemplateType, string[]> = {
   limit_reached: ["{{firstName}}", "{{appUrl}}"],
   pro_confirmation: ["{{firstName}}", "{{planName}}", "{{appUrl}}"],
   payment_failed: ["{{firstName}}", "{{appUrl}}"],
+  reply_published: ["{{firstName}}", "{{reviewerName}}", "{{starRating}}", "{{appUrl}}"],
 };
 
 export const TEMPLATE_LABELS: Record<
@@ -45,6 +47,10 @@ export const TEMPLATE_LABELS: Record<
   payment_failed: {
     name: "Nieudana płatność",
     description: "Wysyłany gdy płatność za subskrypcję się nie powiedzie",
+  },
+  reply_published: {
+    name: "Odpowiedź opublikowana",
+    description: "Wysyłany po opublikowaniu odpowiedzi na opinię Google",
   },
 };
 
@@ -145,6 +151,32 @@ const DEFAULT_TEMPLATES: Record<EmailTemplateType, EmailTemplate> = {
   <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 32px 0;" />
   <p style="font-size: 13px; color: #a1a1aa;">
     Dostajesz tę wiadomość, bo wykupiłeś/aś subskrypcję w ReplyAI.
+  </p>
+</div>`,
+  },
+
+  reply_published: {
+    type: "reply_published",
+    subject: "Odpowiedź opublikowana na Google",
+    body_html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; color: #18181b;">
+  <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 16px;">Odpowiedź opublikowana!</h1>
+  <p style="font-size: 16px; line-height: 1.6; color: #3f3f46;">
+    Cześć {{firstName}}, Twoja odpowiedź na opinię od <strong>{{reviewerName}}</strong> ({{starRating}}/5) została opublikowana na Google.
+  </p>
+
+  <div style="margin: 32px 0;">
+    <a href="{{appUrl}}/reviews" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 16px;">
+      Zobacz opinie →
+    </a>
+  </div>
+
+  <p style="font-size: 14px; line-height: 1.6; color: #71717a;">
+    Odpowiedź jest teraz widoczna publicznie w Google Maps pod Twoją lokalizacją.
+  </p>
+
+  <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 32px 0;" />
+  <p style="font-size: 13px; color: #a1a1aa;">
+    Dostajesz tę wiadomość, bo opublikowano odpowiedź na opinię przez ReplyAI.
   </p>
 </div>`,
   },
@@ -275,6 +307,24 @@ export async function sendPaymentFailedEmail(to: string, fullName: string) {
   const template = await getTemplate("payment_failed");
   const { subject, html } = renderTemplate(template, {
     firstName,
+    appUrl: APP_URL,
+  });
+
+  return getResend().emails.send({ from: EMAIL_FROM, to, subject, html });
+}
+
+export async function sendReplyPublishedEmail(
+  to: string,
+  fullName: string,
+  reviewerName: string,
+  starRating: number,
+) {
+  const firstName = fullName?.split(" ")[0] || "tam";
+  const template = await getTemplate("reply_published");
+  const { subject, html } = renderTemplate(template, {
+    firstName,
+    reviewerName,
+    starRating: String(starRating),
     appUrl: APP_URL,
   });
 

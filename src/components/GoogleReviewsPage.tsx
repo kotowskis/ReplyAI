@@ -16,6 +16,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,9 @@ export function GoogleReviewsPage({
   const [editedReply, setEditedReply] = useState<string>("");
   const [publishing, setPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
+  const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
+  const [deletingReplyId, setDeletingReplyId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchReviews = useCallback(
     async (sync = false) => {
@@ -226,6 +230,66 @@ export function GoogleReviewsPage({
       );
     } finally {
       setPublishing(false);
+    }
+  }
+
+  function requestPublish(reviewId: string) {
+    setConfirmPublishId(reviewId);
+  }
+
+  function confirmPublish() {
+    if (confirmPublishId) {
+      handlePublishReply(confirmPublishId);
+      setConfirmPublishId(null);
+    }
+  }
+
+  function requestDeleteReply(reviewId: string) {
+    setConfirmDeleteId(reviewId);
+  }
+
+  async function handleDeleteReply() {
+    if (!confirmDeleteId) return;
+
+    setDeletingReplyId(confirmDeleteId);
+    setConfirmDeleteId(null);
+    setError(null);
+
+    try {
+      if (!mockMode) {
+        const res = await fetch("/api/google/reviews/reply", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reviewId: confirmDeleteId }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(
+            data.message ?? "Nie udało się usunąć odpowiedzi."
+          );
+        }
+      }
+
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === confirmDeleteId
+            ? {
+                ...r,
+                reply_text: null,
+                reply_updated_at: null,
+                reply_source: null,
+                generation_id: null,
+              }
+            : r
+        )
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Nie udało się usunąć odpowiedzi."
+      );
+    } finally {
+      setDeletingReplyId(null);
     }
   }
 
@@ -444,10 +508,19 @@ export function GoogleReviewsPage({
               editedReply={generatingForId === review.id ? editedReply : ""}
               onEditReply={setEditedReply}
               onGenerate={() => handleGenerateReply(review)}
-              onPublish={() => handlePublishReply(review.id)}
+              onPublish={() => requestPublish(review.id)}
               onCancel={cancelGeneration}
               publishing={publishing && generatingForId === review.id}
               publishSuccess={publishSuccess === review.id}
+              confirmingPublish={confirmPublishId === review.id}
+              onConfirmPublish={confirmPublish}
+              onCancelPublish={() => setConfirmPublishId(null)}
+              onDeleteReply={() => requestDeleteReply(review.id)}
+              deletingReply={deletingReplyId === review.id}
+              confirmingDelete={confirmDeleteId === review.id}
+              onConfirmDelete={handleDeleteReply}
+              onCancelDelete={() => setConfirmDeleteId(null)}
+              mockMode={mockMode}
             />
           ))}
         </div>
@@ -498,6 +571,15 @@ function ReviewCard({
   onCancel,
   publishing,
   publishSuccess,
+  confirmingPublish,
+  onConfirmPublish,
+  onCancelPublish,
+  onDeleteReply,
+  deletingReply,
+  confirmingDelete,
+  onConfirmDelete,
+  onCancelDelete,
+  mockMode,
 }: {
   review: GoogleReview;
   isGenerating: boolean;
@@ -509,6 +591,15 @@ function ReviewCard({
   onCancel: () => void;
   publishing: boolean;
   publishSuccess: boolean;
+  confirmingPublish: boolean;
+  onConfirmPublish: () => void;
+  onCancelPublish: () => void;
+  onDeleteReply: () => void;
+  deletingReply: boolean;
+  confirmingDelete: boolean;
+  onConfirmDelete: () => void;
+  onCancelDelete: () => void;
+  mockMode: boolean;
 }) {
   const hasReply = !!review.reply_text;
   const isReplyAI = review.reply_source === "replyai";
@@ -590,7 +681,21 @@ function ReviewCard({
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
               Odpowiedź właściciela
             </p>
-            <CopyButton text={review.reply_text!} />
+            <div className="flex items-center gap-1">
+              <CopyButton text={review.reply_text!} />
+              <button
+                onClick={onDeleteReply}
+                disabled={deletingReply}
+                className="rounded p-1 text-zinc-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                title="Usuń odpowiedź"
+              >
+                {deletingReply ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
           </div>
           <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-600">
             {review.reply_text}
@@ -603,6 +708,29 @@ function ReviewCard({
                 year: "numeric",
               })}
             </p>
+          )}
+
+          {/* Delete confirmation */}
+          {confirmingDelete && (
+            <div className="mt-2 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+              <span className="text-sm text-red-800">
+                {mockMode
+                  ? "Usunąć odpowiedź? (tryb testowy)"
+                  : "Usunąć odpowiedź z Google? Będzie widoczna jako brak odpowiedzi."}
+              </span>
+              <button
+                onClick={onConfirmDelete}
+                className="rounded-md bg-red-600 px-3 py-1 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Usuń
+              </button>
+              <button
+                onClick={onCancelDelete}
+                className="rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-50"
+              >
+                Anuluj
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -629,18 +757,45 @@ function ReviewCard({
             className="w-full rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-zinc-800 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
           <div className="flex items-center gap-2">
-            <button
-              onClick={onPublish}
-              disabled={publishing || !editedReply.trim()}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {publishing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              {publishing ? "Publikuję..." : "Opublikuj w Google"}
-            </button>
+            {confirmingPublish ? (
+              <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <span className="text-sm text-amber-800">
+                  {mockMode
+                    ? "Zapisać odpowiedź? (tryb testowy)"
+                    : "Opublikować odpowiedź w Google?"}
+                </span>
+                <button
+                  onClick={onConfirmPublish}
+                  disabled={publishing}
+                  className="rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {publishing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Tak, publikuj"
+                  )}
+                </button>
+                <button
+                  onClick={onCancelPublish}
+                  className="rounded-md border border-zinc-200 bg-white px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-50"
+                >
+                  Anuluj
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onPublish}
+                disabled={publishing || !editedReply.trim()}
+                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {publishing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {publishing ? "Publikuję..." : "Opublikuj w Google"}
+              </button>
+            )}
             <CopyButton text={editedReply} />
           </div>
         </div>

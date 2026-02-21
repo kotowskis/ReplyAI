@@ -2,8 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getValidAccessToken,
   replyToReview,
+  deleteReviewReply,
   GoogleTokenExpiredError,
 } from "@/lib/google/client";
+import { sendReplyPublishedEmail } from "@/lib/emails";
 import { NextResponse } from "next/server";
 
 /**
@@ -125,6 +127,34 @@ export async function POST(req: Request) {
       console.error("Failed to update review cache:", updateError);
     }
 
+    // Increment generations counter (publication counts against limit)
+    const { error: rpcError } = await supabase.rpc("increment_generations", {
+      p_company_id: company.id,
+    });
+    if (rpcError) {
+      console.error("Failed to increment generations counter:", rpcError);
+    }
+
+    // Send email notification (fire-and-forget)
+    const reviewData = await supabase
+      .from("google_reviews")
+      .select("reviewer_name, star_rating")
+      .eq("id", reviewId)
+      .single();
+
+    if (user.email) {
+      const fullName =
+        user.user_metadata?.full_name ?? user.email.split("@")[0] ?? "";
+      sendReplyPublishedEmail(
+        user.email,
+        fullName,
+        reviewData.data?.reviewer_name ?? "Klient",
+        reviewData.data?.star_rating ?? 0,
+      ).catch((err) =>
+        console.error("Reply published email failed:", err)
+      );
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof GoogleTokenExpiredError) {
@@ -142,6 +172,135 @@ export async function POST(req: Request) {
       {
         error: "server_error",
         message: "Nie udało się opublikować odpowiedzi.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/google/reviews/reply
+ * Usuwa odpowiedź na opinię Google.
+ *
+ * Body: { reviewId: string }
+ * - reviewId: UUID rekordu z google_reviews
+ */
+export async function DELETE(req: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { reviewId } = body as { reviewId: string };
+
+    if (!reviewId) {
+      return NextResponse.json(
+        { error: "reviewId jest wymagane" },
+        { status: 400 }
+      );
+    }
+
+    // Get company with Google tokens
+    const { data: companies } = await supabase
+      .from("companies")
+      .select(
+        "id, google_oauth_tokens, google_account_id, google_location_id"
+      )
+      .eq("owner_id", user.id)
+      .limit(1);
+
+    if (!companies || companies.length === 0) {
+      return NextResponse.json(
+        { error: "Nie znaleziono firmy" },
+        { status: 400 }
+      );
+    }
+
+    const company = companies[0];
+
+    if (!company.google_oauth_tokens) {
+      return NextResponse.json(
+        { error: "google_not_connected", message: "Google nie jest połączony" },
+        { status: 400 }
+      );
+    }
+
+    if (!company.google_account_id || !company.google_location_id) {
+      return NextResponse.json(
+        { error: "no_location", message: "Nie wybrano lokalizacji Google." },
+        { status: 400 }
+      );
+    }
+
+    // Get review from cache
+    const { data: review } = await supabase
+      .from("google_reviews")
+      .select("id, google_review_id")
+      .eq("id", reviewId)
+      .eq("company_id", company.id)
+      .single();
+
+    if (!review) {
+      return NextResponse.json(
+        { error: "Nie znaleziono opinii" },
+        { status: 404 }
+      );
+    }
+
+    // Get valid access token
+    const { accessToken, updatedEncryptedTokens } =
+      await getValidAccessToken(company.google_oauth_tokens);
+
+    if (updatedEncryptedTokens) {
+      await supabase
+        .from("companies")
+        .update({ google_oauth_tokens: updatedEncryptedTokens })
+        .eq("id", company.id);
+    }
+
+    const reviewName = `${company.google_account_id}/${company.google_location_id}/reviews/${review.google_review_id}`;
+
+    // Delete reply from Google
+    await deleteReviewReply(accessToken, reviewName);
+
+    // Update local cache
+    const { error: updateError } = await supabase
+      .from("google_reviews")
+      .update({
+        reply_text: null,
+        reply_updated_at: null,
+        reply_source: null,
+        generation_id: null,
+      })
+      .eq("id", reviewId);
+
+    if (updateError) {
+      console.error("Failed to update review cache after delete:", updateError);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof GoogleTokenExpiredError) {
+      return NextResponse.json(
+        {
+          error: "google_token_expired",
+          message: "Sesja Google wygasła. Połącz konto ponownie.",
+        },
+        { status: 401 }
+      );
+    }
+
+    console.error("Google review delete reply error:", error);
+    return NextResponse.json(
+      {
+        error: "server_error",
+        message: "Nie udało się usunąć odpowiedzi.",
       },
       { status: 500 }
     );
