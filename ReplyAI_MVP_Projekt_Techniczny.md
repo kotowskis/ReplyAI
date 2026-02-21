@@ -17,10 +17,11 @@
 8. [AI — Prompt Engineering](#8-ai--prompt-engineering)
 9. [Integracje zewnętrzne](#9-integracje-zewnętrzne)
 10. [Bezpieczeństwo i RODO](#10-bezpieczeństwo-i-rodo)
-11. [Plan 8 tygodni](#11-plan-8-tygodni)
+11. [Plan 8 tygodni (MVP)](#11-plan-8-tygodni)
 12. [Podział zadań](#12-podział-zadań)
 13. [Definicja Done](#13-definicja-done)
 14. [Co odpuszczamy w MVP](#14-co-odpuszczamy-w-mvp)
+15. [Roadmapa po MVP — v2 i v3](#15-roadmapa-po-mvp--v2-i-v3)
 
 ---
 
@@ -811,21 +812,33 @@ RESEND_API_KEY=
 ### Osoba A — Frontend & UX
 
 ```
-Tydzień 1-2:  Layout, nawigacja, formularze onboardingu
-Tydzień 3-4:  Generator UI, output z kopiowaniem, licznik
-Tydzień 5-6:  Strony billing, integracja Stripe Checkout (frontend)
-Tydzień 7:    Historia, settings, responsywność, loading states
-Tydzień 8:    Landing page aktualizacja, testy, szlify
+Tydzień 1-2:   Layout, nawigacja, formularze onboardingu
+Tydzień 3-4:   Generator UI, output z kopiowaniem, licznik
+Tydzień 5-6:   Strony billing, integracja Stripe Checkout (frontend)
+Tydzień 7:     Historia, settings, responsywność, loading states
+Tydzień 8:     Landing page aktualizacja, testy, szlify
+Tydzień 9-10:  UI: "Połącz z Google", modal wyboru konta/lokalizacji, status połączenia
+Tydzień 11-12: Strona /reviews — lista opinii, filtrowanie, sortowanie, paginacja
+Tydzień 13-14: "Generuj odpowiedź" inline, "Opublikuj na Google", statusy publikacji
+Tydzień 15-16: Dashboard widżety (oceny, trendy), ustawienia powiadomień
+Tydzień 17-18: Strona /analytics — wykresy statystyk Google, tabela fraz
+Tydzień 19-20: Bulk actions UI, auto-odpowiedzi config, wielojęzyczność (PL/EN)
 ```
 
 ### Osoba B — Backend & AI
 
 ```
-Tydzień 1-2:  Supabase setup, schemat DB, RLS, auth middleware
-Tydzień 3-4:  Claude API, prompt engineering, /api/generate
-Tydzień 5-6:  Stripe webhooks, subskrypcje w DB, Resend emaile
-Tydzień 7:    Obsługa błędów, rate limiting, monitoring Sentry
-Tydzień 8:    Deployment produkcyjny, domena, zmienne env
+Tydzień 1-2:   Supabase setup, schemat DB, RLS, auth middleware
+Tydzień 3-4:   Claude API, prompt engineering, /api/generate
+Tydzień 5-6:   Stripe webhooks, subskrypcje w DB, Resend emaile
+Tydzień 7:     Obsługa błędów, rate limiting, monitoring Sentry
+Tydzień 8:     Deployment produkcyjny, domena, zmienne env
+Tydzień 9-10:  Google Cloud setup, OAuth flow, token encryption, endpoints kont/lokalizacji
+Tydzień 11-12: Google Reviews API wrapper, cron sync, migracja DB google_reviews, endpoint opinii
+Tydzień 13-14: Endpoint publish reply, delete reply, powiązanie z generations, obsługa błędów Google
+Tydzień 15-16: Email "nowa opinia", cron polling, dashboard data aggregation
+Tydzień 17-18: Performance API integration, keywords endpoint, cache danych
+Tydzień 19-20: Pub/Sub (opcja), bulk generation logic, CSV import, rate limit optimization
 ```
 
 ### Spotkania synchronizacyjne
@@ -860,25 +873,227 @@ Poniższe funkcje są **świadomie pominięte** — nie dlatego że nieważne, a
 
 | Funkcja | Dlaczego na później | Kiedy dodać |
 |---|---|---|
-| Auto-publikowanie w Google | Wymaga Google My Business API (weryfikacja firmy) | v2 po potwierdzeniu popytu |
-| Analityka nastrojów | Ładne, ale nie decyduje o zakupie | v2 |
-| Wielojęzyczny interfejs | MVP tylko PL, API i tak obsłuży EN | v2 |
-| Aplikacja mobilna | PWA wystarczy na start | v3 |
-| White-label | Złożone, małe zapotrzebowanie w MVP | v3 |
-| Import opinii CSV | Niszowe, komplikuje UX | v2 |
-| Team accounts | Jeden właściciel = jeden klient MVP | v2 |
-| API dla zewnętrznych | Za wcześnie na ekosystem | v3 |
+| Auto-publikowanie w Google | Wymaga Google Business Profile API (OAuth, weryfikacja) | v2 — tydzień 13–14 |
+| Pobieranie opinii z Google | Wymaga GBP API + cache w DB | v2 — tydzień 11–12 |
+| Analityka nastrojów | Ładne, ale nie decyduje o zakupie | v3 — tydzień 25–28 |
+| Statystyki Google (wyświetlenia, kliknięcia) | Wymaga Performance API | v2.5 — tydzień 17–18 |
+| Wielojęzyczny interfejs | MVP tylko PL, API i tak obsłuży EN | v2.5 — tydzień 19–20 |
+| Aplikacja mobilna | PWA wystarczy na start | v3 — tydzień 25+ |
+| White-label | Złożone, małe zapotrzebowanie w MVP | v3 — tydzień 25–28 |
+| Import opinii CSV | Niszowe, komplikuje UX | v2.5 — tydzień 19–20 |
+| Team accounts | Jeden właściciel = jeden klient MVP | v3 — tydzień 25–28 |
+| API dla zewnętrznych | Za wcześnie na ekosystem | v3 — tydzień 25–28 |
+| Integracja Facebook / Booking.com | Skupienie na Google jako priorytet | v3 — tydzień 21–24 |
+| Powiadomienia o nowych opiniach | Wymaga polling/Pub/Sub | v2 — tydzień 15–16 |
+
+---
+
+## 15. Roadmapa po MVP — v2 i v3
+
+> Szczegółowa analiza integracji Google: [Analiza_Integracji_Google_Business_Profile.md](./Analiza_Integracji_Google_Business_Profile.md)
+
+### v2 — Integracja Google Business Profile (Tydzień 9–16)
+
+---
+
+#### Tydzień 9–10 — Fundament Google (OAuth + konta)
+
+**Cel: użytkownik może połączyć swój profil Google Business z ReplyAI**
+
+```
+☐ Złożenie wniosku o dostęp do Google Business Profile API
+☐ Konfiguracja Google Cloud project (OAuth Client, consent screen)
+☐ Nowe zmienne środowiskowe (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, itd.)
+☐ Migracja DB: google_account_id, google_location_id, google_oauth_tokens w companies
+☐ Szyfrowanie tokenów OAuth (AES-256-GCM)
+☐ Endpoint GET /api/auth/google — redirect do consent screen
+☐ Endpoint GET /api/auth/google/callback — wymiana code → tokeny
+☐ Endpoint GET /api/google/accounts — lista kont GBP użytkownika
+☐ Endpoint GET /api/google/locations — lista lokalizacji konta
+☐ Endpoint POST /api/google/select-location — zapis wybranej lokalizacji
+☐ Endpoint POST /api/google/disconnect — odłączenie konta
+☐ UI: przycisk "Połącz z Google" w ustawieniach
+☐ UI: modal wyboru konta → lokalizacji
+☐ UI: status połączenia (połączono/rozłączono) + nazwa lokalizacji
+☐ Obsługa wygasłych/odwołanych tokenów (auto-detect 401, UI "Połącz ponownie")
+```
+
+**Definicja done:** Użytkownik może połączyć i odłączyć swój profil Google Business w ReplyAI.
+
+---
+
+#### Tydzień 11–12 — Pobieranie opinii + widok z filtrami
+
+**Cel: użytkownik widzi opinie Google w ReplyAI z pełnym filtrowaniem**
+
+```
+☐ Migracja DB: tabela google_reviews (cache opinii)
+☐ Lib: klient Google Business Profile API (wrapper na fetch z obsługą tokenów)
+☐ Endpoint GET /api/google/reviews — lista opinii z filtrami i paginacją
+☐ Endpoint POST /api/google/reviews/sync — wymuszenie synchronizacji
+☐ Cron job: synchronizacja opinii co 15 min (polling reviews.list)
+☐ Mapowanie star_rating z Google enum ("ONE"→1, ..., "FIVE"→5)
+☐ Strona /reviews — lista opinii Google
+☐ Filtrowanie po ocenie (1-5 gwiazdek, wielokrotny wybór)
+☐ Filtrowanie po statusie odpowiedzi (bez odpowiedzi / z odpowiedzią)
+☐ Sortowanie po dacie lub ocenie
+☐ Alert: "X opinii czeka na odpowiedź"
+☐ Paginacja (infinite scroll lub klasyczna)
+☐ Przycisk "Odśwież" — ręczna synchronizacja
+☐ Link do opinii w nawigacji dashboardu
+```
+
+**Definicja done:** Użytkownik widzi swoje opinie Google w ReplyAI, może je filtrować i sortować.
+
+---
+
+#### Tydzień 13–14 — Generowanie + publikacja odpowiedzi na Google
+
+**Cel: użytkownik generuje odpowiedź AI i publikuje ją jednym kliknięciem na Google**
+
+```
+☐ Przycisk "Generuj odpowiedź" przy każdej opinii → wywołanie istniejącego /api/generate
+☐ Podgląd wygenerowanej odpowiedzi z możliwością edycji (ReplyOutput inline)
+☐ Endpoint POST /api/google/reviews/{id}/publish — PUT reply do Google API
+☐ Endpoint DELETE /api/google/reviews/{id}/reply — usunięcie odpowiedzi z Google
+☐ Aktualizacja statusu opinii po publikacji (reply_text, reply_source='replyai')
+☐ Powiązanie z tabelą generations (generation_id w google_reviews)
+☐ UI: przycisk "Opublikuj na Google" (z potwierdzeniem)
+☐ UI: status publikacji (opublikowano / błąd)
+☐ Obsługa błędów: niezweryfikowana lokalizacja, token wygasł, rate limit
+☐ Zliczanie publikacji w generacjach (reuse istniejącego limitu)
+☐ Email: powiadomienie o udanej publikacji (opcjonalnie)
+```
+
+**Definicja done:** Użytkownik generuje odpowiedź AI i publikuje ją na Google bez opuszczania ReplyAI.
+
+---
+
+#### Tydzień 15–16 — Dashboard opinii + powiadomienia
+
+**Cel: użytkownik widzi statystyki opinii i dostaje powiadomienia o nowych**
+
+```
+☐ Dashboard widżety: średnia ocen, rozkład gwiazdek, opinie bez odpowiedzi, śr. czas odpowiedzi
+☐ Wykres trendu opinii (ostatnie 30/90 dni) — linia z liczbą opinii i średnią oceną
+☐ Wyróżnienie negatywnych opinii (1-2 gwiazdki) — priorytetyzacja odpowiedzi
+☐ Email "Nowa opinia" — template + trigger z cron/polling
+☐ Migracja email_templates: nowy typ 'new_review'
+☐ Ustawienia powiadomień (email on/off, próg oceny — np. tylko <3 gwiazdki)
+☐ Testy end-to-end: pełny flow connect → sync → generate → publish
+☐ Aktualizacja landing page: sekcja "Integracja z Google"
+☐ Dokumentacja dla użytkowników: jak połączyć konto Google
+```
+
+**Definicja done:** Użytkownik ma pełny obraz swoich opinii Google z powiadomieniami o nowych.
+
+---
+
+### v2.5 — Statystyki Google i rozszerzenia (Tydzień 17–20)
+
+---
+
+#### Tydzień 17–18 — Performance API + analityka
+
+**Cel: użytkownik widzi statystyki swojego profilu Google w ReplyAI**
+
+```
+☐ Endpoint GET /api/google/performance — metryki lokalizacji
+☐ Endpoint GET /api/google/keywords — frazy wyszukiwania
+☐ Strona /analytics — dashboard statystyk Google
+☐ Wykresy: wyświetlenia (Maps + Search), kliknięcia (strona, telefon, nawigacja)
+☐ Tabela: popularne frazy wyszukiwania (miesięcznie)
+☐ Filtrowanie po zakresie dat (7 / 30 / 90 dni)
+☐ Cache danych performance (odświeżanie raz dziennie)
+☐ Porównanie okresów (obecny vs. poprzedni miesiąc)
+```
+
+**Definicja done:** Użytkownik widzi kluczowe metryki Google Business Profile w jednym panelu.
+
+---
+
+#### Tydzień 19–20 — Usprawnienia i skalowanie
+
+**Cel: poprawa UX i przygotowanie pod większą skalę**
+
+```
+☐ Pub/Sub integration (opcjonalnie — jeśli polling nie wystarczy)
+☐ Bulk actions: "Generuj odpowiedzi dla wszystkich bez odpowiedzi"
+☐ Auto-odpowiedzi: szablon automatycznej odpowiedzi na opinie 5★ (konfigurowalny)
+☐ Raport tygodniowy email: podsumowanie opinii z ostatniego tygodnia
+☐ Import opinii CSV (Facebook, Booking — ręczny upload)
+☐ Wielojęzyczny interfejs (PL/EN)
+☐ Optymalizacja: rate limiting Google API, smart polling (mniej zapytań dla nieaktywnych lokalizacji)
+☐ Wniosek o wyższy limit QPM (jeśli >50% wykorzystania)
+```
+
+---
+
+### v3 — Platforma multi-kanałowa (Tydzień 21+)
+
+---
+
+#### Tydzień 21–24 — Facebook i Booking.com
+
+```
+☐ Integracja Facebook Graph API — pobieranie opinii ze stron FB
+☐ Facebook OAuth + token management
+☐ Publikacja odpowiedzi na Facebook
+☐ Integracja Booking.com (API partnera — jeśli dostępne)
+☐ Zunifikowany widok opinii ze wszystkich platform
+☐ Filtry per platforma (Google / Facebook / Booking / Wszystkie)
+```
+
+#### Tydzień 25–28 — Zaawansowane funkcje
+
+```
+☐ Team accounts — wielu użytkowników w jednej firmie (role: owner, manager, viewer)
+☐ Multi-lokalizacje — zarządzanie kilkoma lokalizacjami z jednego konta
+☐ Analiza sentymentu — automatyczne tagowanie opinii (pozytywna/neutralna/negatywna)
+☐ Słowa kluczowe w opiniach — co klienci chwalą/krytykują najczęściej
+☐ API dla zewnętrznych integracji (REST API z kluczami)
+☐ White-label (custom branding dla agencji)
+☐ Aplikacja mobilna (PWA → natywna)
+```
+
+---
+
+### Podsumowanie roadmapy
+
+| Okres | Faza | Kluczowe deliverables |
+|-------|------|-----------------------|
+| Tyg. 1–8 | **MVP** | Generator AI, Stripe, historia, admin panel |
+| Tyg. 9–10 | **v2** | OAuth Google, łączenie konta/lokalizacji |
+| Tyg. 11–12 | **v2** | Pobieranie opinii, widok z filtrami |
+| Tyg. 13–14 | **v2** | Generuj + opublikuj odpowiedź na Google |
+| Tyg. 15–16 | **v2** | Dashboard opinii, powiadomienia email |
+| Tyg. 17–18 | **v2.5** | Statystyki Google Performance API |
+| Tyg. 19–20 | **v2.5** | Bulk actions, auto-odpowiedzi, CSV import |
+| Tyg. 21–24 | **v3** | Facebook, Booking.com, multi-platform |
+| Tyg. 25–28 | **v3** | Team accounts, multi-lokalizacje, API, white-label |
 
 ---
 
 ## Linki i zasoby
 
+### MVP (tyg. 1–8)
 - [Next.js App Router docs](https://nextjs.org/docs)
 - [Supabase Auth helpers dla Next.js](https://supabase.com/docs/guides/auth/auth-helpers/nextjs)
 - [Stripe Subscriptions quickstart](https://stripe.com/docs/billing/quickstart)
 - [Claude API docs](https://docs.anthropic.com)
 - [Resend Next.js integration](https://resend.com/docs/send-with-nextjs)
 - [Shadcn/ui komponenty](https://ui.shadcn.com)
+
+### Integracja Google (tyg. 9+)
+- [Google Business Profile API — portal](https://developers.google.com/my-business)
+- [Reviews API reference (v4)](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews)
+- [Reply to reviews](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/updateReply)
+- [OAuth setup](https://developers.google.com/my-business/content/oauth-setup)
+- [Notification setup (Pub/Sub)](https://developers.google.com/my-business/content/notification-setup)
+- [Performance API reference](https://developers.google.com/my-business/reference/performance/rest)
+- [API limits & quotas](https://developers.google.com/my-business/content/limits)
+- [GBP API access prerequisites](https://developers.google.com/my-business/content/prereqs)
+- [Deprecation schedule](https://developers.google.com/my-business/content/sunset-dates)
 
 ---
 
