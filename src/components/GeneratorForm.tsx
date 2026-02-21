@@ -12,7 +12,7 @@ const PLATFORMS = [
 const FETCH_TIMEOUT_MS = 35_000; // 35s — slightly more than server's 30s Claude timeout
 
 interface GeneratorFormProps {
-  onGenerated: (reply: string) => void;
+  onGenerated: (reply: string, generationId: string | null) => void;
   onUsageUpdate: (used: number, limit: number) => void;
   disabled?: boolean;
 }
@@ -86,7 +86,7 @@ export default function GeneratorForm({
         return;
       }
 
-      onGenerated(data.reply);
+      onGenerated(data.reply, data.generationId ?? null);
       onUsageUpdate(data.usage.used, data.usage.limit);
       setReviewText("");
       setRating(null);

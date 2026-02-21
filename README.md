@@ -21,6 +21,7 @@
 - [Uruchomienie lokalne](#uruchomienie-lokalne)
 - [Struktura projektu](#struktura-projektu)
 - [Deployment na Vercel](#deployment-na-vercel)
+- [Cron — reset limitu generacji](#cron--reset-limitu-generacji)
 - [Przydatne komendy](#przydatne-komendy)
 - [Troubleshooting](#troubleshooting)
 
@@ -104,6 +105,9 @@ STRIPE_AGENCY_PRICE_ID=price_...
 # ─── RESEND ──────────────────────────────────────────────
 # Znajdziesz w: resend.com → API Keys
 RESEND_API_KEY=re_...
+
+# ─── CRON ───────────────────────────────────────────────
+CRON_SECRET=                              # losowy secret do autoryzacji cron jobów
 
 # ─── APP ─────────────────────────────────────────────────
 NEXT_PUBLIC_APP_URL=http://localhost:3000  # zmień na domenę po deployu
@@ -346,6 +350,8 @@ replyai/
 │   │   └── billing/page.tsx    # Subskrypcja
 │   └── api/
 │       ├── generate/route.ts   # POST /api/generate
+│       ├── cron/
+│       │   └── reset-generations/route.ts # Cron: monthly reset
 │       └── webhooks/
 │           └── stripe/route.ts # Stripe webhook handler
 ├── components/
@@ -393,6 +399,48 @@ Po deployu zaktualizuj webhook w Stripe:
 Pamiętaj o zmianie:
 ```
 NEXT_PUBLIC_APP_URL=https://twojadomena.vercel.app
+```
+
+---
+
+## Cron — reset limitu generacji
+
+Użytkownicy na planie **Free** mają limit 5 generacji miesięcznie. Licznik jest automatycznie zerowany **1. dnia każdego miesiąca** dzięki Vercel Cron.
+
+### Jak to działa
+
+1. Vercel wywołuje `GET /api/cron/reset-generations` o **00:00 UTC** każdego 1. dnia miesiąca
+2. Endpoint weryfikuje nagłówek `Authorization: Bearer <CRON_SECRET>`
+3. Wywołuje funkcję SQL `reset_monthly_generations()` — ustawia `generations_used = 0` dla wszystkich subskrypcji z planem `free`
+
+### Konfiguracja
+
+Harmonogram jest zdefiniowany w `vercel.json`:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/reset-generations",
+      "schedule": "0 0 1 * *"
+    }
+  ]
+}
+```
+
+Na Vercel dodaj zmienną środowiskową:
+
+```
+CRON_SECRET=<wygeneruj losowy secret: openssl rand -hex 32>
+```
+
+Vercel automatycznie wysyła ten secret w nagłówku `Authorization` przy każdym wywołaniu crona.
+
+### Testowanie ręczne
+
+```bash
+curl -X GET http://localhost:3000/api/cron/reset-generations \
+  -H "Authorization: Bearer TWOJ_CRON_SECRET"
 ```
 
 ---

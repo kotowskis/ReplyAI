@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { anthropic } from "@/lib/anthropic";
 import { SYSTEM_PROMPT, buildPrompt } from "@/lib/prompts";
+import { sendLimitReachedEmail } from "@/lib/emails";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -99,6 +100,15 @@ export async function POST(req: Request) {
       !isUnlimited &&
       subscription.generations_used >= subscription.generations_limit
     ) {
+      // Send limit-reached email only on first hit (used == limit exactly)
+      if (subscription.generations_used === subscription.generations_limit) {
+        const fullName =
+          user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "";
+        sendLimitReachedEmail(user.email!, fullName).catch((err) =>
+          console.error("Limit-reached email failed:", err),
+        );
+      }
+
       return NextResponse.json(
         {
           error: "limit_reached",
@@ -175,14 +185,18 @@ export async function POST(req: Request) {
     }
 
     // 6. Save generation to database
-    const { error: insertError } = await supabase.from("generations").insert({
-      company_id: company.id,
-      review_text: reviewText.trim(),
-      review_rating: rating,
-      review_platform: platform,
-      reply_text: reply,
-      tokens_used: message.usage.input_tokens + message.usage.output_tokens,
-    });
+    const { data: generation, error: insertError } = await supabase
+      .from("generations")
+      .insert({
+        company_id: company.id,
+        review_text: reviewText.trim(),
+        review_rating: rating,
+        review_platform: platform,
+        reply_text: reply,
+        tokens_used: message.usage.input_tokens + message.usage.output_tokens,
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("Failed to save generation:", insertError);
@@ -200,6 +214,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       reply,
+      generationId: generation?.id ?? null,
       usage: {
         used: subscription.generations_used + 1,
         limit: subscription.generations_limit,

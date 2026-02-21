@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import ChangePasswordForm from "@/components/ChangePasswordForm";
-import DeleteAccountSection from "@/components/DeleteAccountSection";
+import { PLANS } from "@/lib/stripe";
+import AccountTabs from "@/components/AccountTabs";
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -11,53 +11,73 @@ export default async function AccountPage() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, email")
-    .eq("id", user.id)
+  // Fetch profile, company, and subscription data in parallel
+  const [profileResult, companiesResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("companies")
+      .select("id, name, industry, tone, language, description, owner_name")
+      .eq("owner_id", user.id)
+      .limit(1),
+  ]);
+
+  const profile = profileResult.data;
+  const companies = companiesResult.data;
+
+  if (!companies || companies.length === 0) {
+    redirect("/onboarding");
+  }
+
+  const company = companies[0];
+
+  // Fetch subscription
+  let { data: subscription } = await supabase
+    .from("subscriptions")
+    .select(
+      "plan, status, generations_used, generations_limit, stripe_customer_id, current_period_end"
+    )
+    .eq("company_id", company.id)
     .single();
 
+  if (!subscription) {
+    const { data: newSub } = await supabase
+      .from("subscriptions")
+      .insert({
+        company_id: company.id,
+        plan: "free",
+        status: "active",
+        generations_limit: 5,
+        generations_used: 0,
+      })
+      .select(
+        "plan, status, generations_used, generations_limit, stripe_customer_id, current_period_end"
+      )
+      .single();
+
+    subscription = newSub;
+  }
+
+  const plan = (subscription?.plan as keyof typeof PLANS) ?? "free";
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Konto</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Zarządzaj swoim kontem użytkownika.
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 space-y-4">
-        <h2 className="text-base font-semibold text-zinc-900">
-          Dane konta
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <span className="block text-sm font-medium text-zinc-500">
-              Imię i nazwisko
-            </span>
-            <span className="mt-1 block text-sm text-zinc-900">
-              {profile?.full_name || "—"}
-            </span>
-          </div>
-          <div>
-            <span className="block text-sm font-medium text-zinc-500">
-              Email
-            </span>
-            <span className="mt-1 block text-sm text-zinc-900">
-              {profile?.email || user.email}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 space-y-5">
-        <h2 className="text-base font-semibold text-zinc-900">
-          Zmiana hasła
-        </h2>
-        <ChangePasswordForm />
-      </div>
-
-      <DeleteAccountSection />
-    </div>
+    <AccountTabs
+      profile={profile}
+      userEmail={user.email ?? ""}
+      company={company}
+      billing={{
+        currentPlan: plan,
+        status: subscription?.status ?? "active",
+        generationsUsed: subscription?.generations_used ?? 0,
+        generationsLimit: subscription?.generations_limit ?? 5,
+        hasStripeSubscription: !!subscription?.stripe_customer_id,
+        currentPeriodEnd: subscription?.current_period_end ?? null,
+        proPriceId: PLANS.pro.stripePriceId,
+        agencyPriceId: PLANS.agency.stripePriceId,
+      }}
+    />
   );
 }
